@@ -1,0 +1,13 @@
+{
+  "name": "@promptshield/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/dev-copy.mjs",
+    "dev": "node ./scripts/dev-copy.mjs --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  }
+}

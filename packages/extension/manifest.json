@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "PromptShield",
+  "version": "0.1.0",
+  "description": "Detect-first enterprise AI browser extension",
+  "permissions": ["storage","scripting","tabs","activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background/index.js", "type": "module" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content/inject.js"], "run_at": "document_idle" }],
+  "action": { "default_title": "PromptShield" }
+}
