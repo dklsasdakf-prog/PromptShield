@@ -1,26 +1,35 @@
-# PromptShield Phase 1 MVP
+# PromptShield Repository
 
-PromptShield is a detect-first guardrail layer for enterprise AI usage across web surfaces. This starter monorepo ships the admin console UI, browser extension plumbing, and shared policy contracts for the Phase 1 MVP.
+PromptShield delivers detect-first guardrails for enterprise AI usage. This starter monorepo ships the analyst-facing admin console, a Chrome-compatible browser extension, shared policy contracts, and a future native agent surface for OS-level controls.
 
-## Packages & Commands
+## Repository Layout
+- `packages/admin-console` – React + Vite control tower with dashboards, policy editor, sanctioned app catalog, and telemetry viewer.
+- `packages/extension` – Manifest V3 extension that intercepts prompts, sanitizes secrets, vets outputs, and syncs policy + telemetry via Chrome storage.
+- `packages/shared` – TypeScript contracts, policy decision engine, detector library, and hashing helpers consumed by both UI and extension runtimes.
+- `packages/native-agent` – Placeholder for the native companion responsible for clipboard hardening, screenshots, and IPC.
 
-- Admin console (React/Vite):
-  - `pnpm -w -C packages/admin-console dev` – run the local UI using Vite.
-- Browser extension (MV3):
-  - `pnpm -C packages/extension build` – build to `packages/extension/dist/` using esbuild.
-  - `pnpm -C packages/extension dev` – watch+rebuild extension sources during development.
-- Shared contracts: `packages/shared/`
+## Feature Highlights
+- **Risk-adaptive policy authoring**: Create ordered rules with actions (`allow`, `block`, `sanitize`, `flag`), dry-run toggles, feature flags, and sanctioned redirect targets.
+- **Sanctioned app catalog**: Manage AI hosts from the console; synced allowlist drives extension enforcement and redirects unsanctioned traffic.
+- **Privacy-preserving telemetry**: Prompts/token samples are tokenized with rotating salts, identifiers are SHA-256 hashed, and telemetry retains only bounded NDJSON event buffers.
+- **Automated redaction & coaching**: Secrets detectors and regex sanitizers redact risky tokens, show inline banners, and offer "copy safely" output workflows.
+- **Virtualized analyst views**: Security dashboard and events table provide high-volume event handling with risk badges, operational checklists, and export tooling.
 
-## Operational Notes
+## Getting Started
+1. Install dependencies with `pnpm install` (workspace aware) from the repository root.
+2. Run the admin console: `pnpm -C packages/admin-console dev` (Vite dev server on port 5173).
+3. Build the browser extension: `pnpm -C packages/extension build` (outputs to `packages/extension/dist/`). Load the unpacked folder in Chrome to exercise prompt interception flows.
+4. Optional hot rebuild: `pnpm -C packages/extension dev` watches TypeScript sources and re-emits the dist bundle.
 
-- Telemetry adopts a strict “no PII by default” posture; identifiers are tokenized with per-tenant salts.
-- Sanitization errors fail closed: prompts are blocked and analysts are alerted.
-- The extension currently issues Chrome notifications as interim UX while the in-page banner is under construction.
-- Load the unpacked extension from `packages/extension/dist/` after running the build step and test on ChatGPT, Claude, Gemini, or Copilot web UIs.
+## Testing & Quality
+- UI tests: `pnpm -C packages/admin-console test` (Vitest + Testing Library in jsdom).
+- Linting & formatting: `pnpm -C packages/admin-console lint` for ESLint; Tailwind config and security-themed component library keep styling consistent.
+- Manual smoke scripts live in `MANUAL-QA.md` for extension + console scenarios (policy edits, telemetry export, redact checks).
 
-## Privacy by Default
+## Privacy & Security Defaults
+- Sanitizer failures and unknown hosts fail-closed, optionally redirecting users to approved surfaces.
+- `PS_DSR_PURGE` message clears all namespaced telemetry keys for privacy requests.
+- Output vetting flags destructive shell patterns and suspicious URLs, piping warnings back to analysts and end-users via toast notifications.
 
-- **Hashed identifiers**: user and host identifiers are SHA-256 hashed with per-tenant salts; prompt and output samples are tokenized with a daily rotating salt (`ps:salt:<YYYY-MM-DD>`).
-- **Storage scope**: telemetry lives under `ps:*` keys in extension storage with a rolling cap of 10,000 records; no raw prompts or outputs persist locally.
-- **Retention**: salts rotate every 24 hours and telemetry can be purged instantly via the `PS_DSR_PURGE` message for data subject requests (DSR).
-- **Fail-closed**: sanitizer errors or unsanctioned hosts block submissions and prompt users with compliance guidance.
+## Roadmap
+The native agent remains a stub until Phase 2, where it will inherit clipboard governance, screenshot blurring, and signed installer delivery. Shared contracts are ready for reuse across backend policy services when you introduce persistence or approval workflows.
