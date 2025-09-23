@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -14,6 +14,7 @@ import {
   Layers,
   Loader2,
   Lock,
+  Palette,
   ShieldAlert,
   ShieldCheck,
   SquareCode,
@@ -104,13 +105,21 @@ export interface VirtualizedTableProps {
   events: VirtualizedTableEvent[]
 }
 
+type RiskFilter = RiskLevel | 'all'
+
 export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({ events }) => {
   const viewportRef = useRef<HTMLDivElement | null>(null)
+  const filtersRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all')
   const rowHeight = 56
   const height = 280
 
-  const rows = useMemo(() => events, [events])
+  const rows = useMemo(() => {
+    if (riskFilter === 'all') return events
+    return events.filter((event) => event.risk === riskFilter)
+  }, [events, riskFilter])
 
   const startIndex = Math.floor(scrollTop / rowHeight)
   const visibleCount = Math.ceil(height / rowHeight) + 3
@@ -121,52 +130,153 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({ events }) =>
     setScrollTop((event.currentTarget as HTMLDivElement).scrollTop)
   }
 
+  useEffect(() => {
+    setScrollTop(0)
+    if (viewportRef.current) {
+      viewportRef.current.scrollTop = 0
+    }
+  }, [riskFilter])
+
+  useEffect(() => {
+    if (!filtersOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+        setFiltersOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [filtersOpen])
+
+  const filterOptions: Array<{ label: string; value: RiskFilter }> = [
+    { label: 'All risk', value: 'all' },
+    { label: 'Critical', value: 'critical' },
+    { label: 'High', value: 'high' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Low', value: 'low' },
+  ]
+
+  const selectedFilterLabel = filterOptions.find((option) => option.value === riskFilter)?.label ?? 'All risk'
+
   return (
     <div className="space-y-3" data-testid="virtualized-table">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-[hsl(var(--foreground))]">Live Events</h3>
-        <Button size="sm" variant="outline">
-          <Filter className="mr-2 h-3.5 w-3.5" aria-hidden />
-          Filters
-        </Button>
-      </div>
-      <div
-        ref={viewportRef}
-        className="relative w-full overflow-auto rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm"
-        style={{ height }}
-        onScroll={onScroll}
-        role="table"
-        aria-label="Virtualized events table"
-      >
-        <div className="sticky top-0 z-10 grid grid-cols-[120px,160px,160px,120px,120px,1fr] border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.9)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
-          <span>ID</span>
-          <span>Timestamp</span>
-          <span>App</span>
-          <span>Risk</span>
-          <span>Identity</span>
-          <span>Outcome</span>
+        <div className="relative" data-testid="event-filters" ref={filtersRef}>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-expanded={filtersOpen}
+            aria-haspopup="listbox"
+            onClick={() => setFiltersOpen((prev) => !prev)}
+          >
+            <Filter className="mr-2 h-3.5 w-3.5" aria-hidden />
+            {selectedFilterLabel}
+          </Button>
+          {filtersOpen ? (
+            <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2 shadow-lg">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                Risk level
+              </p>
+              <ul className="space-y-1" role="listbox">
+                {filterOptions.map((option) => {
+                  const active = option.value === riskFilter
+                  return (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                          active
+                            ? 'bg-[hsla(var(--accent),0.15)] text-[hsl(var(--accent-foreground))]'
+                            : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsla(var(--foreground),0.05)]'
+                        }`}
+                        onClick={() => {
+                          setRiskFilter(option.value)
+                          setFiltersOpen(false)
+                        }}
+                      >
+                        <span>{option.label}</span>
+                        {active ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : null}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : null}
         </div>
-        <div style={{ height: rows.length * rowHeight }}>
-          <div style={{ transform: `translateY(${offsetY}px)` }}>
-            {visibleRows.map((row) => (
-              <div
-                key={row.id}
-                className="grid grid-cols-[120px,160px,160px,120px,120px,1fr] items-center border-b border-[hsla(var(--border),0.6)] px-4"
-                style={{ height: rowHeight }}
-                role="row"
-              >
-                <span className="font-medium text-[hsl(var(--foreground))]">{row.id}</span>
-                <span className="text-[hsl(var(--muted-foreground))]">{row.timestamp}</span>
-                <span className="font-medium text-[hsl(var(--foreground))]">{row.app}</span>
-                <RiskBadge level={row.risk} condensed />
-                <span className="text-xs text-[hsl(var(--muted-foreground))] font-medium">{row.identity}</span>
-                <span className="text-xs text-[hsl(var(--muted-foreground))] break-words overflow-hidden leading-tight max-w-full">
-                  <span className="font-semibold text-[hsl(var(--foreground))]">{row.action}</span>
-                  {' • '}
-                  <span className="truncate inline-block max-w-[200px]" title={row.preview}>{row.preview}</span>
-                </span>
+      </div>
+      <div className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+        <div className="w-full overflow-x-auto">
+          <div
+            ref={viewportRef}
+            className="relative w-full min-w-[640px] overflow-y-auto text-sm"
+            style={{ height }}
+            onScroll={onScroll}
+            role="table"
+            aria-label="Virtualized events table"
+          >
+            <div
+              className="sticky top-0 z-10 grid items-center gap-4 border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.9)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]"
+              style={{
+                gridTemplateColumns:
+                  'minmax(120px,0.22fr) minmax(140px,0.22fr) minmax(180px,0.28fr) minmax(110px,0.16fr) minmax(210px,0.28fr) minmax(240px,0.36fr)',
+              }}
+            >
+              <span>ID</span>
+              <span>Timestamp</span>
+              <span>App</span>
+              <span>Risk</span>
+              <span>Identity</span>
+              <span>Outcome</span>
+            </div>
+            <div style={{ height: rows.length * rowHeight }}>
+              <div style={{ transform: `translateY(${offsetY}px)` }}>
+                {visibleRows.map((row, index) => {
+                  const globalIndex = startIndex + index
+                  const showDivider = globalIndex < rows.length - 1
+                  return (
+                    <div
+                      key={row.id}
+                      className={`relative grid items-center gap-4 px-4 ${
+                        showDivider
+                          ? 'after:absolute after:left-0 after:right-0 after:bottom-0 after:h-px after:bg-[hsla(var(--border),0.6)]'
+                          : ''
+                      }`}
+                      style={{
+                        height: rowHeight,
+                        gridTemplateColumns:
+                          'minmax(120px,0.22fr) minmax(140px,0.22fr) minmax(180px,0.28fr) minmax(110px,0.16fr) minmax(210px,0.28fr) minmax(240px,0.36fr)',
+                      }}
+                      role="row"
+                    >
+                    <span className="truncate font-medium text-[hsl(var(--foreground))]" title={row.id}>
+                      {row.id}
+                    </span>
+                    <span className="truncate text-[hsl(var(--muted-foreground))]" title={row.timestamp}>
+                      {row.timestamp}
+                    </span>
+                    <span className="truncate font-medium text-[hsl(var(--foreground))]" title={row.app}>
+                      {row.app}
+                    </span>
+                    <div className="justify-self-start">
+                      <RiskBadge level={row.risk} condensed />
+                    </div>
+                    <span className="truncate text-xs font-medium text-[hsl(var(--muted-foreground))]" title={row.identity}>
+                      {row.identity}
+                    </span>
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]" title={row.preview}>
+                      <span className="shrink-0 font-semibold capitalize text-[hsl(var(--foreground))]">{row.action}</span>
+                      <span aria-hidden className="text-[hsl(var(--border))]">
+                        •
+                      </span>
+                      <span className="truncate">{row.preview}</span>
+                    </div>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </div>
@@ -486,7 +596,7 @@ const ComponentLibrarySpec: React.FC = () => {
             Component Library
           </CardTitle>
           <CardDescription>
-            Spec-driven primitives that power PromptShield’s analyst workspace and fail-closed safeguards.
+            Spec-driven primitives that power Checkred AI Security’s analyst workspace and fail-closed safeguards.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 text-sm">
@@ -548,8 +658,233 @@ const ComponentLibrarySpec: React.FC = () => {
     </Card>
 
     <StepUpAuthModal />
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Palette className="h-5 w-5" aria-hidden />
+          Brand Identity
+        </CardTitle>
+        <CardDescription>
+          Checkred AI Security's security-focused visual identity and design system components.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <BrandShowcase />
+      </CardContent>
+    </Card>
   </div>
   )
 }
+
+// ============================================================================
+// BRANDING & THEME COMPONENTS
+// ============================================================================
+
+interface BrandColorProps {
+  name: string;
+  hex: string;
+  usage: string;
+  testId?: string;
+}
+
+const BrandColor: React.FC<BrandColorProps> = ({ name, hex, usage, testId }) => (
+  <div className="flex items-center gap-3 p-3 border rounded-lg" data-testid={testId}>
+    <div
+      className="w-12 h-12 rounded-lg border-2 border-white shadow-sm"
+      style={{ backgroundColor: hex }}
+      aria-label={`Color swatch for ${name}`}
+    />
+    <div className="flex-1">
+      <div className="font-medium">{name}</div>
+      <div className="text-sm text-muted-foreground font-mono">{hex}</div>
+      <div className="text-xs text-muted-foreground mt-1">{usage}</div>
+    </div>
+  </div>
+);
+
+const BrandTypography: React.FC = () => (
+  <div className="space-y-6">
+    <div>
+  <h1 className="text-4xl font-bold tracking-tight mb-2">Checkred AI Security</h1>
+      <p className="text-lg text-muted-foreground">Enterprise AI Security Platform</p>
+    </div>
+
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold mb-2">Headlines</h2>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Detect-First Security</h1>
+          <h2 className="text-2xl font-semibold">Zero-Trust AI Governance</h2>
+          <h3 className="text-xl font-medium">Policy-Driven Protection</h3>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-medium mb-2">Body Text</h2>
+        <p className="text-base leading-relaxed">
+          Checkred AI Security provides comprehensive protection against AI security risks through
+          advanced detection, sanitization, and policy enforcement mechanisms.
+        </p>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-medium mb-2">Captions & Metadata</h2>
+        <p className="text-sm text-muted-foreground">
+          Last updated: 2 minutes ago • Risk Level: Medium • Status: Active
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+const BrandIconography: React.FC = () => {
+  const icons = [
+    { name: "Shield", icon: ShieldCheck, description: "Primary brand protection" },
+    { name: "Lock", icon: Lock, description: "Security & encryption" },
+    { name: "Alert Triangle", icon: AlertTriangle, description: "Warnings & alerts" },
+    { name: "Eye", icon: Eye, description: "Monitoring & visibility" },
+    { name: "Shield Check", icon: ShieldCheck, description: "Verified security" },
+    { name: "Alert Circle", icon: ShieldAlert, description: "Critical alerts" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {icons.map(({ name, icon: Icon, description }) => (
+        <div key={name} className="flex flex-col items-center p-4 border rounded-lg text-center">
+          <Icon className="h-8 w-8 mb-2 text-primary" />
+          <div className="font-medium text-sm">{name}</div>
+          <div className="text-xs text-muted-foreground mt-1">{description}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const BrandGuidelines: React.FC = () => (
+  <div className="space-y-6">
+    <div>
+      <h3 className="text-lg font-semibold mb-3">Brand Voice</h3>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <h4 className="font-medium mb-2 text-green-700">Do Use</h4>
+          <ul className="text-sm space-y-1 text-muted-foreground">
+            <li>• Authoritative yet approachable</li>
+            <li>• Technical precision with clarity</li>
+            <li>• Proactive security messaging</li>
+            <li>• Empowering language for users</li>
+          </ul>
+        </Card>
+        <Card className="p-4">
+          <h4 className="font-medium mb-2 text-red-700">Don't Use</h4>
+          <ul className="text-sm space-y-1 text-muted-foreground">
+            <li>• Alarmist or fear-mongering</li>
+            <li>• Overly technical jargon</li>
+            <li>• Passive or uncertain language</li>
+            <li>• Marketing hype over substance</li>
+          </ul>
+        </Card>
+      </div>
+    </div>
+
+    <div>
+      <h3 className="text-lg font-semibold mb-3">Visual Hierarchy</h3>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <span className="text-sm">Critical risks & errors</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+          <span className="text-sm">High priority warnings</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+          <span className="text-sm">Medium risk alerts</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <span className="text-sm">Low risk & success states</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <span className="text-sm">Information & neutral states</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const BrandShowcase: React.FC = () => (
+  <div className="space-y-8">
+    <Card className="p-6">
+      <div className="text-center space-y-4">
+        <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+          <ShieldCheck className="h-8 w-8 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Checkred AI Security</h1>
+          <p className="text-lg text-muted-foreground">Enterprise AI Security Platform</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Detect-first guardrails for AI usage across web surfaces
+          </p>
+        </div>
+      </div>
+    </Card>
+
+    <div className="grid md:grid-cols-2 gap-6">
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Brand Colors</h3>
+        <div className="space-y-3">
+          <BrandColor
+            name="Primary Blue"
+            hex="#2563eb"
+            usage="Primary actions, links, and brand elements"
+            testId="brand-color-primary"
+          />
+          <BrandColor
+            name="Critical Red"
+            hex="#dc2626"
+            usage="Errors, critical risks, and destructive actions"
+            testId="brand-color-critical"
+          />
+          <BrandColor
+            name="Warning Orange"
+            hex="#ea580c"
+            usage="High-risk warnings and alerts"
+            testId="brand-color-warning"
+          />
+          <BrandColor
+            name="Success Green"
+            hex="#16a34a"
+            usage="Success states and low-risk indicators"
+            testId="brand-color-success"
+          />
+          <BrandColor
+            name="Info Blue"
+            hex="#2563eb"
+            usage="Information and neutral states"
+            testId="brand-color-info"
+          />
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Typography</h3>
+        <BrandTypography />
+      </Card>
+    </div>
+
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold mb-4">Iconography</h3>
+      <BrandIconography />
+    </Card>
+
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold mb-4">Brand Guidelines</h3>
+      <BrandGuidelines />
+    </Card>
+  </div>
+);
 
 export default ComponentLibrarySpec

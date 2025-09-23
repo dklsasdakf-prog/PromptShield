@@ -81,7 +81,7 @@ const defaultPolicyRules: PolicyRule[] = [
 ]
 
 const SecurityDashboard: React.FC = () => {
-  const [policyName, setPolicyName] = useState('PromptShield Zero-Trust')
+  const [policyName, setPolicyName] = useState('Checkred AI Security Zero-Trust')
   const [policyDescription, setPolicyDescription] = useState(
     'Redact high-risk secrets from prompts, enforce MFA for policy overrides, and fail-closed on sanitizer errors.',
   )
@@ -93,6 +93,7 @@ const SecurityDashboard: React.FC = () => {
         timestamp: new Date().toLocaleTimeString(),
         app: 'chat.openai.com',
         risk: 'critical',
+        identity: 'alice@company.com',
         action: 'block',
         preview: 'SSN detected and prompt blocked',
       },
@@ -101,6 +102,7 @@ const SecurityDashboard: React.FC = () => {
         timestamp: new Date(Date.now() - 90_000).toLocaleTimeString(),
         app: 'claude.ai',
         risk: 'high',
+        identity: 'bob@company.com',
         action: 'sanitize',
         preview: 'Financial account redacted',
       },
@@ -109,6 +111,7 @@ const SecurityDashboard: React.FC = () => {
         timestamp: new Date(Date.now() - 540_000).toLocaleTimeString(),
         app: 'gemini.google.com',
         risk: 'medium',
+        identity: 'charlie@company.com',
         action: 'flag',
         preview: 'Unsanctioned data source referenced',
       },
@@ -117,6 +120,7 @@ const SecurityDashboard: React.FC = () => {
         timestamp: new Date(Date.now() - 1_200_000).toLocaleTimeString(),
         app: 'copilot.microsoft.com',
         risk: 'low',
+        identity: 'diana@company.com',
         action: 'allow',
         preview: 'Policy baseline satisfied',
       },
@@ -127,7 +131,7 @@ const SecurityDashboard: React.FC = () => {
   const onSavePolicy = () => {
     const policy: Policy = {
       id: 'policy-local-dev',
-      name: policyName.trim() || 'PromptShield Policy',
+      name: policyName.trim() || 'Checkred AI Security Policy',
       version: 1,
       rules: defaultPolicyRules,
     }
@@ -142,14 +146,14 @@ const SecurityDashboard: React.FC = () => {
     }
 
     // TODO: Replace console log with persistence to secure storage service.
-    console.info('promptshield.policy.save', JSON.stringify(payload, null, 2))
+    console.info('checkred-ai-security.policy.save', JSON.stringify(payload, null, 2))
   }
 
   return (
     <div className="space-y-6 p-6" data-testid="security-dashboard">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[hsl(var(--foreground))]">PromptShield Control Tower</h1>
+          <h1 className="text-2xl font-semibold text-[hsl(var(--foreground))]">Checkred AI Security Posture</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
             Detect-first guardrails with privacy-preserving telemetry across sanctioned AI surfaces.
           </p>
@@ -208,7 +212,7 @@ const SecurityDashboard: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -244,7 +248,7 @@ const SecurityDashboard: React.FC = () => {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr,1fr] xl:grid-cols-[1.6fr,1fr,1fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr),minmax(0,1fr),minmax(0,1fr)]">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

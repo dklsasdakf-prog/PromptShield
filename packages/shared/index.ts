@@ -39,7 +39,7 @@ export interface RedactionResult { sanitized: string; redactions: number; reason
 
 export const defaultPolicy: Policy = {
   id: 'default',
-  name: 'PromptShield Default',
+  name: 'Checkred AI Security Default',
   version: 1,
   dryRun: false,
   allowlist: ['chat.openai.com','claude.ai','gemini.google.com','bing.com'],

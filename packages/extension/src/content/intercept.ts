@@ -24,7 +24,7 @@ async function sendPrompt(prompt: string, target?: HTMLElement) {
       risk: coercePanelRisk(res.risk),
     })
     window.dispatchEvent(
-      new CustomEvent('promptshield:coach', {
+      new CustomEvent('checkred:coach', {
         detail: {
           type: 'error',
           title: 'Blocked',
@@ -43,7 +43,7 @@ async function sendPrompt(prompt: string, target?: HTMLElement) {
       risk: coercePanelRisk(res.risk),
     })
     window.dispatchEvent(
-      new CustomEvent('promptshield:coach', {
+      new CustomEvent('checkred:coach', {
         detail: {
           type: 'warning',
           title: 'Sanitized',
@@ -97,7 +97,7 @@ function observeOutputs() {
           const warnings: OutputWarning[] = res?.warnings ?? []
           if (warnings.length) {
             window.dispatchEvent(
-              new CustomEvent('promptshield:coach', {
+              new CustomEvent('checkred:coach', {
                 detail: {
                   type: 'info',
                   title: 'Output check',
@@ -122,10 +122,10 @@ import('./coach')
 
 function decorateOutputNode(node: HTMLElement, warnings: OutputWarning[]) {
   if (!warnings.length) return
-  let banner = node.querySelector<HTMLElement>('[data-promptshield-warning]')
+  let banner = node.querySelector<HTMLElement>('[data-checkred-warning]')
   if (!banner) {
     banner = document.createElement('div')
-    banner.dataset.promptshieldWarning = 'true'
+    banner.dataset.checkredWarning = 'true'
     banner.setAttribute('role', 'alert')
     banner.style.position = 'relative'
     banner.style.display = 'flex'
@@ -164,12 +164,12 @@ function decorateOutputNode(node: HTMLElement, warnings: OutputWarning[]) {
   learnButton.style.cursor = 'pointer'
   learnButton.addEventListener('click', () => {
     window.dispatchEvent(
-      new CustomEvent('promptshield:coach', {
+      new CustomEvent('checkred:coach', {
         detail: {
           type: 'info',
           title: 'Why we flagged this',
           message:
-            'PromptShield spotted risky commands or links. We only store hashed telemetry and recommend copy-safely to keep data compliant.',
+            'Checkred AI Security spotted risky commands or links. We only store hashed telemetry and recommend copy-safely to keep data compliant.',
         },
       }),
     )
@@ -192,7 +192,7 @@ function decorateOutputNode(node: HTMLElement, warnings: OutputWarning[]) {
 }
 
 function clearOutputBanner(node: HTMLElement) {
-  const existing = node.querySelector('[data-promptshield-warning]')
+  const existing = node.querySelector('[data-checkred-warning]')
   if (existing) existing.remove()
 }
 
@@ -215,14 +215,14 @@ async function copySafely(node: Element) {
       temp.remove()
     }
     window.dispatchEvent(
-      new CustomEvent('promptshield:coach', {
+      new CustomEvent('checkred:coach', {
         detail: { type: 'success', title: 'Copied safely', message: 'Sanitized content copied without risky commands.' },
       }),
     )
   } catch (error) {
-    console.error('[PromptShield] copySafely failed', error)
+    console.error('[Checkred AI Security] copySafely failed', error)
     window.dispatchEvent(
-      new CustomEvent('promptshield:coach', {
+      new CustomEvent('checkred:coach', {
         detail: {
           type: 'error',
           title: 'Copy failed',

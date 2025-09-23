@@ -1,4 +1,4 @@
-import { ensurePromptShieldTheme } from './theme'
+import { ensureCheckredTheme } from './theme'
 
 export type PanelRisk = 'low' | 'medium' | 'high' | 'critical' | 'info'
 
@@ -25,12 +25,12 @@ let overlay: HTMLElement | null = null
 let highlighted: HTMLElement | null = null
 let autoDismissTimer: number | null = null
 
-const overlayId = 'promptshield-overlay-root'
+const overlayId = 'checkred-overlay-root'
 
 function ensureOverlay(): HTMLElement {
   if (!overlay) {
     overlay = document.createElement('div')
-    overlay.className = 'promptshield-overlay'
+    overlay.className = 'checkred-overlay'
     overlay.id = overlayId
     document.body.appendChild(overlay)
   }
@@ -39,17 +39,17 @@ function ensureOverlay(): HTMLElement {
 
 function highlightTarget(target: HTMLElement | null) {
   if (highlighted && highlighted !== target) {
-    highlighted.classList.remove('promptshield-highlight')
+    highlighted.classList.remove('checkred-highlight')
   }
   if (target) {
-    target.classList.add('promptshield-highlight')
+    target.classList.add('checkred-highlight')
     highlighted = target
   }
 }
 
 function buildBadge(risk: PanelRisk) {
   const badge = document.createElement('span')
-  badge.className = 'promptshield-badge'
+  badge.className = 'checkred-badge'
   badge.dataset.risk = risk
   badge.textContent = risk === 'info' ? 'Info' : `${risk.charAt(0).toUpperCase()}${risk.slice(1)} risk`
   return badge
@@ -57,11 +57,11 @@ function buildBadge(risk: PanelRisk) {
 
 function buildPills(pills: string[]) {
   const group = document.createElement('div')
-  group.className = 'promptshield-pill-group'
+  group.className = 'checkred-pill-group'
   pills.forEach((pill) => {
     if (!pill) return
     const node = document.createElement('span')
-    node.className = 'promptshield-pill'
+    node.className = 'checkred-pill'
     node.textContent = pill.toUpperCase()
     group.appendChild(node)
   })
@@ -70,15 +70,15 @@ function buildPills(pills: string[]) {
 
 function buildPreview(preview: string, previewLabel?: string) {
   const wrapper = document.createElement('div')
-  wrapper.className = 'promptshield-grid'
+  wrapper.className = 'checkred-grid'
   if (previewLabel) {
     const label = document.createElement('span')
-    label.className = 'promptshield-subtle'
+    label.className = 'checkred-subtle'
     label.textContent = previewLabel
     wrapper.appendChild(label)
   }
   const pre = document.createElement('div')
-  pre.className = 'promptshield-preview'
+  pre.className = 'checkred-preview'
   pre.textContent = preview
   wrapper.appendChild(pre)
   return wrapper
@@ -96,19 +96,19 @@ export function dismissPanel() {
   overlay?.remove()
   overlay = null
   if (highlighted) {
-    highlighted.classList.remove('promptshield-highlight')
+    highlighted.classList.remove('checkred-highlight')
     highlighted = null
   }
 }
 
 function renderPanel(options: PanelOptions) {
-  ensurePromptShieldTheme()
+  ensureCheckredTheme()
   clearAutoDismiss()
   const root = ensureOverlay()
   root.textContent = ''
 
   const card = document.createElement('section')
-  card.className = 'promptshield-card'
+  card.className = 'checkred-card'
 
   const header = document.createElement('header')
   const title = document.createElement('h2')
@@ -130,7 +130,7 @@ function renderPanel(options: PanelOptions) {
   }
 
   const dismissButton = document.createElement('button')
-  dismissButton.className = 'promptshield-dismiss'
+  dismissButton.className = 'checkred-dismiss'
   dismissButton.type = 'button'
   dismissButton.textContent = options.dismissLabel ?? 'Dismiss'
   dismissButton.addEventListener('click', dismissPanel)
@@ -141,7 +141,7 @@ function renderPanel(options: PanelOptions) {
     options.actions.forEach((action) => {
       const button = document.createElement('button')
       button.type = 'button'
-      button.className = `promptshield-button promptshield-button--${action.variant ?? 'ghost'}`
+      button.className = `checkred-button checkred-button--${action.variant ?? 'ghost'}`
       button.textContent = action.label
       button.addEventListener('click', () => {
         try {

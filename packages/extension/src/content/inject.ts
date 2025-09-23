@@ -56,7 +56,7 @@ function scheduleRescan() {
 }
 
 function instrumentTextarea(textarea: HTMLTextAreaElement) {
-  if (textarea.dataset.promptshieldInstrumented === 'true') {
+  if (textarea.dataset.checkredInstrumented === 'true') {
     return
   }
 
@@ -67,7 +67,7 @@ function instrumentTextarea(textarea: HTMLTextAreaElement) {
     interceptStandalone(textarea)
   }
 
-  textarea.dataset.promptshieldInstrumented = 'true'
+  textarea.dataset.checkredInstrumented = 'true'
 }
 
 function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
@@ -76,8 +76,8 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
   }
 
   const handler = (event: SubmitEvent) => {
-    if (form.dataset.promptshieldBypass === 'true') {
-      delete form.dataset.promptshieldBypass
+    if (form.dataset.checkredBypass === 'true') {
+      delete form.dataset.checkredBypass
       return
     }
 
@@ -114,7 +114,7 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
           })
         }
 
-        form.dataset.promptshieldBypass = 'true'
+        form.dataset.checkredBypass = 'true'
         if (typeof form.requestSubmit === 'function') {
           form.requestSubmit()
         } else {
@@ -122,7 +122,7 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
         }
       })
       .catch((error) => {
-        console.error('[PromptShield] prompt submission failed', error)
+        console.error('[Checkred AI Security] prompt submission failed', error)
         showBlockPanel({
           target: textarea,
           reason: 'Prompt blocked: guardrail unavailable',
@@ -138,7 +138,7 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
     node.addEventListener(
       'click',
       (event) => {
-        if (form.dataset.promptshieldBypass === 'true') {
+        if (form.dataset.checkredBypass === 'true') {
           return
         }
         const prompt = textarea.value.trim()
@@ -169,11 +169,11 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
                 risk: coercePanelRisk(response.risk),
               })
             }
-            form.dataset.promptshieldBypass = 'true'
+            form.dataset.checkredBypass = 'true'
             ;(event.currentTarget as HTMLElement).dispatchEvent(new MouseEvent('click'))
           })
           .catch((error) => {
-            console.error('[PromptShield] submit click failed', error)
+            console.error('[Checkred AI Security] submit click failed', error)
             showBlockPanel({
               target: textarea,
               reason: 'Prompt blocked: guardrail unavailable',
@@ -189,7 +189,7 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
 }
 
 function interceptStandalone(textarea: HTMLTextAreaElement) {
-  if (textarea.dataset.promptshieldStandalone === 'true') {
+  if (textarea.dataset.checkredStandalone === 'true') {
     return
   }
 
@@ -238,7 +238,7 @@ function interceptStandalone(textarea: HTMLTextAreaElement) {
         dispatchNativeEnter(textarea)
       })
       .catch((error) => {
-        console.error('[PromptShield] standalone intercept failed', error)
+        console.error('[Checkred AI Security] standalone intercept failed', error)
         showBlockPanel({
           target: textarea,
           reason: 'Prompt blocked: guardrail unavailable',
@@ -247,7 +247,7 @@ function interceptStandalone(textarea: HTMLTextAreaElement) {
       })
   })
 
-  textarea.dataset.promptshieldStandalone = 'true'
+  textarea.dataset.checkredStandalone = 'true'
 }
 
 async function handlePrompt(prompt: string): Promise<PromptResponse | undefined> {
@@ -255,7 +255,7 @@ async function handlePrompt(prompt: string): Promise<PromptResponse | undefined>
     const response = await sendPrompt(prompt)
     return response
   } catch (error) {
-    console.error('[PromptShield] runtime error', error)
+    console.error('[Checkred AI Security] runtime error', error)
     return { action: 'block', reason: 'Guardrail handshake failed', risk: 'critical' }
   }
 }

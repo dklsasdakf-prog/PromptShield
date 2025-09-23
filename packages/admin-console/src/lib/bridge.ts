@@ -25,6 +25,6 @@ export function exportEvents(ndjson: string): void {
   const blob = new Blob([ndjson], { type: 'application/x-ndjson' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = 'promptshield-telemetry.ndjson'
+  link.download = 'checkred-ai-security-telemetry.ndjson'
   link.click()
 }

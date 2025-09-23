@@ -1,6 +1,6 @@
 
 
-# PromptShield — **AGENTS.md (World‑Class Build Playbook)**
+# Checkred AI Security — **AGENTS.md (World‑Class Build Playbook)**
 
 > You (Copilot/Codex) are my multi‑agent engineering team. You can run shell commands, create/modify files, and generate code where instructed. Use **npm workspaces**, Node ≥18, macOS/Linux. After each step, **confirm success** (or fix automatically). **Do not store raw PII** anywhere. Default to **fail‑closed** if uncertain.
 
@@ -133,7 +133,7 @@ You are my Shared Contracts Agent.
 
    export const defaultPolicy: Policy = {
      id: 'default',
-     name: 'PromptShield Default',
+     name: 'Checkred AI Security Default',
      version: 1,
      dryRun: false,
      allowlist: ['chat.openai.com','claude.ai','gemini.google.com','bing.com'],
@@ -175,7 +175,7 @@ You are my Shared Contracts Agent.
 ```
 
 ### Acceptance
-- `@promptshield/shared` exports types, `defaultPolicy`, `tokenize.ts`, and a trivial policy evaluator.
+- `@checkred-ai-security/shared` exports types, `defaultPolicy`, `tokenize.ts`, and a trivial policy evaluator.
 
 ---
 
@@ -253,11 +253,11 @@ You are my Extension Agent.
      const res = await chrome.runtime.sendMessage({ type: 'PROMPT_SUBMIT', prompt, url: location.href })
      if (!res) return prompt
      if (res.action === 'block') {
-       window.dispatchEvent(new CustomEvent('promptshield:coach', { detail: { type:'error', title:'Blocked', message: res.reason || 'Sensitive content detected. Prompt not sent.' } }))
+       window.dispatchEvent(new CustomEvent('checkred:coach', { detail: { type:'error', title:'Blocked', message: res.reason || 'Sensitive content detected. Prompt not sent.' } }))
        throw new Error('Prompt blocked')
      }
      if (res.action === 'sanitize' && res.text) {
-       window.dispatchEvent(new CustomEvent('promptshield:coach', { detail: { type:'warning', title:'Sanitized', message:`${res.redactions} sensitive item(s) redacted.` } }))
+       window.dispatchEvent(new CustomEvent('checkred:coach', { detail: { type:'warning', title:'Sanitized', message:`${res.redactions} sensitive item(s) redacted.` } }))
        return res.text
      }
      return prompt
@@ -292,7 +292,7 @@ You are my Extension Agent.
              const text = n.innerText.slice(0, 4000)
              const res = await chrome.runtime.sendMessage({ type:'OUTPUT_OBSERVED', text, url: location.href })
              if (res?.warnings?.length) {
-               window.dispatchEvent(new CustomEvent('promptshield:coach', { detail: { type:'info', title:'Output check', message:`${res.warnings.length} warning(s) in model output.` } }))
+               window.dispatchEvent(new CustomEvent('checkred:coach', { detail: { type:'info', title:'Output check', message:`${res.warnings.length} warning(s) in model output.` } }))
              }
            }
          })
@@ -310,10 +310,10 @@ You are my Extension Agent.
    tee packages/extension/src/content/coach.ts <<'TS'
    type Variant = 'info'|'success'|'warning'|'error'
    function ensureHost() {
-     let host = document.getElementById('promptshield-coach')
+     let host = document.getElementById('checkred-coach')
      if (host) return host
      host = document.createElement('div')
-     host.id = 'promptshield-coach'
+     host.id = 'checkred-coach'
      host.style.position = 'fixed'
      host.style.right = '16px'
      host.style.bottom = '16px'
@@ -333,7 +333,7 @@ You are my Extension Agent.
      setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(10px)'; el.style.transition='all .25s ease'; setTimeout(()=>el.remove(), 250)}, 3500)
      if (navigator.vibrate) try { navigator.vibrate(50) } catch {}
    }
-   window.addEventListener('promptshield:coach', (e:any) => {
+   window.addEventListener('checkred:coach', (e:any) => {
      toast(e.detail.type, e.detail.title, e.detail.message)
    })
    TS
@@ -490,7 +490,7 @@ You are my Admin UI Agent.
    export async function getPolicy(){ return (await fetch('/api/mock-policy.json').catch(()=>null))?.json?.() ?? null }
    export async function savePolicy(p:any){ localStorage.setItem('ps:policy-ui', JSON.stringify(p)); return true }
    export async function getEvents(){ const raw = localStorage.getItem('ps:events-ui'); return raw? JSON.parse(raw): [] }
-   export async function exportEvents(ndjson:string){ const blob = new Blob([ndjson],{type:'application/x-ndjson'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='promptshield-telemetry.ndjson'; a.click() }
+   export async function exportEvents(ndjson:string){ const blob = new Blob([ndjson],{type:'application/x-ndjson'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='checkred-ai-security-telemetry.ndjson'; a.click() }
    TS
 
 3) Wire PolicyEditor to load/save from bridge; add Dry-Run toggle saved alongside policy.

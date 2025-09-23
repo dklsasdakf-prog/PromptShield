@@ -22,8 +22,8 @@ import { cva, type VariantProps } from 'class-variance-authority'
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type DensityMode = 'comfortable' | 'compact'
 
-const THEME_STORAGE_KEY = 'promptshield-theme-mode'
-const DENSITY_STORAGE_KEY = 'promptshield-density-mode'
+const THEME_STORAGE_KEY = 'checkred-ai-security-theme-mode'
+const DENSITY_STORAGE_KEY = 'checkred-ai-security-density-mode'
 
 type ThemeTokens = Record<string, string>
 
@@ -48,32 +48,32 @@ const themeTokens: Record<'light' | 'dark', ThemeTokens> = {
     '--muted-foreground': '220 9% 46%',
     '--card': '0 0% 100%',
     '--card-foreground': '220 15% 15%',
-    '--border': '214 32% 91%',
+    '--border': '215 32% 91%',
     '--primary': '225 71% 51%',
     '--primary-foreground': '0 0% 100%',
     '--secondary': '224 45% 85%',
     '--secondary-foreground': '225 70% 25%',
     '--accent': '164 78% 41%',
-    '--accent-foreground': '0 0% 100%',
+    '--accent-foreground': '0 64% 42%',
     '--destructive': '0 84% 60%',
     '--destructive-foreground': '0 0% 100%',
     '--ring': '224 76% 48%',
     '--input': '214 32% 91%',
   },
   dark: {
-    '--background': '216 33% 8%',
-    '--foreground': '210 40% 96%',
+    '--background': '0 0% 7%',
+    '--foreground': '0 0% 100%',
     '--muted': '215 19% 15%',
     '--muted-foreground': '214 15% 65%',
-    '--card': '214 27% 12%',
+    '--card': '0 0% 11%',
     '--card-foreground': '210 40% 96%',
     '--border': '215 19% 18%',
-    '--primary': '226 70% 70%',
-    '--primary-foreground': '226 100% 16%',
-    '--secondary': '226 40% 32%',
+    '--primary': '0 56% 44%',
+    '--primary-foreground': '0 0% 100%',
+    '--secondary': '0 56% 24%',
     '--secondary-foreground': '226 70% 88%',
     '--accent': '165 70% 45%',
-    '--accent-foreground': '166 100% 12%',
+    '--accent-foreground': '352 57% 43%',
     '--destructive': '4 82% 60%',
     '--destructive-foreground': '0 0% 100%',
     '--ring': '226 70% 70%',
@@ -388,7 +388,7 @@ export const SecurityThemeDemo: React.FC = () => (
       <CardHeader className="border-none bg-[hsla(var(--primary),0.12)]">
         <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-[hsl(var(--primary))]">
           <ShieldCheck className="h-4 w-4" aria-hidden />
-          PromptShield System
+          Checkred AI Security System
         </CardTitle>
         <CardDescription className="text-xs leading-5">
           Risk-adaptive guardrails that keep sensitive disclosures out of AI prompts and outputs.

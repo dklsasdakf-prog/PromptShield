@@ -1,5 +1,5 @@
 {
-  "name": "promptshield",
+  "name": "checkred-ai-security",
   "private": true,
   "workspaces": [
     "packages/*"

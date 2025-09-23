@@ -1,4 +1,4 @@
-# PromptShield Native Agent (Stub)
+# Checkred AI Security Native Agent (Stub)
 
 This package will host the native companion used for OS-level protections:
 

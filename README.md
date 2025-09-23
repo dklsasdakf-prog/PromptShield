@@ -1,6 +1,6 @@
-# PromptShield Repository
+# Checkred AI Security Repository
 
-PromptShield delivers detect-first guardrails for enterprise AI usage. This starter monorepo ships the analyst-facing admin console, a Chrome-compatible browser extension, shared policy contracts, and a future native agent surface for OS-level controls.
+Checkred AI Security delivers detect-first guardrails for enterprise AI usage. This starter monorepo ships the analyst-facing admin console, a Chrome-compatible browser extension, shared policy contracts, and a future native agent surface for OS-level controls.
 
 ## Repository Layout
 - `packages/admin-console` – React + Vite control tower with dashboards, policy editor, sanctioned app catalog, and telemetry viewer.

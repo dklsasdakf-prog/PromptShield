@@ -221,7 +221,7 @@ function maybeRedirect(target: string) {
       ;(result as Promise<unknown>).catch(() => {})
     }
   } catch (error) {
-    console.warn('[PromptShield] Redirect target invalid', error)
+    console.warn('[Checkred AI Security] Redirect target invalid', error)
   }
 }
 

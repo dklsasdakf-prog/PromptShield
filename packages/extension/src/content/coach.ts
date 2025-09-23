@@ -1,14 +1,14 @@
-import { ensurePromptShieldTheme } from './theme'
+import { ensureCheckredTheme } from './theme'
 
 type Variant = 'info' | 'success' | 'warning' | 'error'
 
 function ensureHost() {
-  ensurePromptShieldTheme()
-  let host = document.getElementById('promptshield-coach') as HTMLDivElement | null
+  ensureCheckredTheme()
+  let host = document.getElementById('checkred-coach') as HTMLDivElement | null
   if (host) return host
   host = document.createElement('div')
-  host.id = 'promptshield-coach'
-  host.className = 'promptshield-toast-host'
+  host.id = 'checkred-coach'
+  host.className = 'checkred-toast-host'
   document.body.appendChild(host)
   return host
 }
@@ -17,7 +17,7 @@ function toast(variant: Variant, title: string, message: string) {
   const host = ensureHost()
   const el = document.createElement('article')
   el.setAttribute('role', 'alert')
-  el.className = 'promptshield-toast'
+  el.className = 'checkred-toast'
   el.dataset.variant = variant
 
   const header = document.createElement('header')
@@ -47,10 +47,10 @@ function toast(variant: Variant, title: string, message: string) {
   window.setTimeout(exit, 4200)
 }
 
-window.addEventListener('promptshield:coach', (e: any) => {
+window.addEventListener('checkred:coach', (e: any) => {
   const detail = e.detail || {}
   const variant: Variant = ['info', 'success', 'warning', 'error'].includes(detail.type)
     ? detail.type
     : 'info'
-  toast(variant, detail.title ?? 'PromptShield', detail.message ?? '')
+  toast(variant, detail.title ?? 'Checkred AI Security', detail.message ?? '')
 })

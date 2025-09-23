@@ -1,5 +1,5 @@
 {
-  "name": "@promptshield/extension",
+  "name": "@checkred-ai-security/extension",
   "version": "0.1.0",
   "private": true,
   "type": "module",

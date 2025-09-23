@@ -1,4 +1,4 @@
-# PromptShield Manual QA Matrix (Phase 1)
+# Checkred AI Security Manual QA Matrix (Phase 1)
 
 | Scenario | Expected Outcome | Notes |
 | --- | --- | --- |

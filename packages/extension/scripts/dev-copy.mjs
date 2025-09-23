@@ -30,7 +30,7 @@ const ctx = await createContext({
 
 if (watchMode) {
   await ctx.watch()
-  console.log('PromptShield extension watch mode enabled — compiling on changes.')
+  console.log('Checkred AI Security extension watch mode enabled — compiling on changes.')
 } else {
   await ctx.rebuild()
   await ctx.dispose()
