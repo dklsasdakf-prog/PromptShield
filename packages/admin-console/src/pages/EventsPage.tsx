@@ -14,7 +14,7 @@ const EventsPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    refresh()
+    void refresh()
   }, [])
 
   const refresh = async () => {

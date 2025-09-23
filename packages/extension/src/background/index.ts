@@ -20,7 +20,7 @@ async function getSalt(): Promise<string> {
 
 const secretRegexes = [
   /sk-[a-zA-Z0-9]{20,}/g,
-  /(?i)aws(.{0,10})?(access|secret)_?key[:=]\s*([A-Za-z0-9\/+=]{16,})/g,
+  /aws(.{0,10})?(access|secret)_?key[:=]\s*([A-Za-z0-9\/+=]{16,})/gi,
   /AIza[0-9A-Za-z\-_]{35}/g,
   /\b\d{3}-\d{2}-\d{4}\b/g,
   /\b(?:\d[ -]*?){13,19}\b/g
@@ -94,14 +94,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const salt = await getSalt()
       await logEvent({
         ts: Date.now(),
-        userHash: sha256('dev-user'),
-        hostHash: sha256(url.hostname),
+        userHash: await sha256('dev-user'),
+        hostHash: await sha256(url.hostname),
         app: url.hostname,
         type: 'prompt',
         action,
         risk: eventRisk,
         redactionCount: redactions,
-        sampleHash: tokenizeSample(promptText.slice(0, 256), salt),
+        sampleHash: await tokenizeSample(promptText.slice(0, 256), salt),
         dryRun: dry,
       })
 
@@ -137,8 +137,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const risk = findings.length ? 'medium' : detectorHits.secrets ? 'high' : 'low'
       await logEvent({
         ts: Date.now(),
-        userHash: sha256('dev-user'),
-        hostHash: sha256(url.hostname),
+        userHash: await sha256('dev-user'),
+        hostHash: await sha256(url.hostname),
         app: url.hostname,
         type: 'output',
         action: 'allow',

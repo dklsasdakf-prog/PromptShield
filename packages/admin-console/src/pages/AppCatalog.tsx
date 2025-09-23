@@ -11,37 +11,35 @@ const AppCatalog: React.FC = () => {
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    const load = async () => {
+    void (async () => {
       const remote = await getPolicy()
-      const stored = localStorage.getItem('ps:policy-ui')
-      const hydrated: Policy | null = remote ?? (stored ? JSON.parse(stored) : null)
+      const hydrated: Policy | null = remote ?? defaultPolicy
       setPolicy({ ...defaultPolicy, ...(hydrated ?? {}) })
       setLoading(false)
-    }
-    load()
+    })()
   }, [])
 
   const allowlist = policy.allowlist ?? []
 
-  const commit = async (nextPolicy: Policy) => {
+  const commit = (nextPolicy: Policy) => {
     setPolicy(nextPolicy)
-    await savePolicy(nextPolicy)
+    savePolicy(nextPolicy)
     setSavedAt(Date.now())
   }
 
-  const addHost = async () => {
+  const addHost = () => {
     const trimmed = hostInput.trim()
     if (!trimmed) return
     if (allowlist.includes(trimmed)) {
       setHostInput('')
       return
     }
-    await commit({ ...policy, allowlist: [...allowlist, trimmed] })
+    commit({ ...policy, allowlist: [...allowlist, trimmed] })
     setHostInput('')
   }
 
-  const removeHost = async (host: string) => {
-    await commit({ ...policy, allowlist: allowlist.filter((h) => h !== host) })
+  const removeHost = (host: string) => {
+    commit({ ...policy, allowlist: allowlist.filter((h) => h !== host) })
   }
 
   if (loading) {

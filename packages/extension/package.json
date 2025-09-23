@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && cp manifest.json dist/",
     "dev": "chokidar 'src/**/*.ts' -c 'npm -w packages/extension run build'"
   },
   "devDependencies": {

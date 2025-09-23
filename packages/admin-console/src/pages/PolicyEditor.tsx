@@ -31,14 +31,11 @@ const PolicyEditorPage: React.FC = () => {
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    const load = async () => {
+    void (async () => {
       const remote = await getPolicy()
-      const stored = localStorage.getItem('ps:policy-ui')
-      const hydrated: Policy | null = remote ?? (stored ? JSON.parse(stored) : null)
-      setPolicy({ ...defaultPolicy, ...(hydrated ?? {}) })
+      setPolicy({ ...defaultPolicy, ...(remote ?? {}) })
       setLoading(false)
-    }
-    load()
+    })()
   }, [])
 
   const addRule = () => {
@@ -64,7 +61,7 @@ const PolicyEditorPage: React.FC = () => {
       ...policy,
       rules: policy.rules.map((r) => ({ ...r, name: r.name.trim(), condition: r.condition.trim() })),
     }
-    await savePolicy(toPersist)
+    savePolicy(toPersist)
     setSavedAt(Date.now())
     setSaving(false)
   }

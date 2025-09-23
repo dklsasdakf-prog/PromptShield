@@ -65,7 +65,7 @@ const defaultPolicyRules: PolicyRule[] = [
   {
     id: 'rule-ssn-block',
     name: 'Block SSN disclosure',
-    condition: "prompt.matches(/\\b\\d{3}-\\d{2}-\\d{4}\\b/)",
+    condition: String.raw`prompt.matches(/\b\d{3}-\d{2}-\d{4}\b/)`,
     action: 'block',
     enabled: true,
     riskLevel: 'critical',
@@ -73,7 +73,7 @@ const defaultPolicyRules: PolicyRule[] = [
   {
     id: 'rule-finance-sanitize',
     name: 'Sanitize account numbers',
-    condition: "prompt.matches(/\\b(?:\d[ -]?){12,16}\\b/)",
+    condition: String.raw`prompt.matches(/\b(?:\d[ -]?){12,16}\b/)`,
     action: 'sanitize',
     enabled: true,
     riskLevel: 'high',
