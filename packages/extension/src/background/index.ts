@@ -1,212 +1,189 @@
-import type { Action, RedactionResult, Risk, TelemetryEvent } from '../../../shared'
+import { defaultPolicy, Policy, RedactionResult } from '../../../shared/index'
+import { sha256, tokenizeSample, dateKey } from '../../../shared/tokenize'
+import { decide } from '../../../shared/policy'
+import { evaluateDetectors } from '../../../shared/detectors'
 
-const SANCTIONED_HOSTS = new Set(['chat.openai.com', 'claude.ai', 'gemini.google.com', 'copilot.microsoft.com'])
-const ICON_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAZUlEQVRoge3OMQ0AAAwDoP3/0b1gBB5KsGe0SvhKlCpQqUClApQqUKlApQKVKpQqUKlCpQqUClApQqUKlCpQKUKlCpQqUKlCpQqUClApQqUKlCpQKVKpQqUKlCpQqUCtCL8AtHA1rYv2Y9oAAAAASUVORK5CYII='
+async function getPolicy(): Promise<Policy> {
+  const p = await chrome.storage.sync.get(['ps:policy'])
+  return p['ps:policy'] || defaultPolicy
+}
+async function setPolicy(policy: Policy) { await chrome.storage.sync.set({ 'ps:policy': policy }) }
 
-const tenantSalts = new Map<string, string>()
-let rotatingSalt = createSalt()
-let rotatingSaltUpdatedAt = Date.now()
-const ROTATING_SALT_TTL = 1000 * 60 * 60 // 1 hour
-
-const telemetryBuffer: TelemetryEvent[] = []
-
-const encoder = new TextEncoder()
-
-type PromptMessage = {
-  type: 'PROMPT_SUBMIT'
-  prompt: string
-  url: string
+async function getSalt(): Promise<string> {
+  const key = 'ps:salt:'+dateKey()
+  const s = await chrome.storage.local.get([key])
+  if (s[key]) return s[key]
+  const v = crypto.getRandomValues(new Uint32Array(8)).join('-')
+  await chrome.storage.local.set({ [key]: v })
+  return v
 }
 
-type PromptResponse =
-  | { action: 'allow'; risk: Risk }
-  | { action: 'sanitize'; text: string; risk: Risk; redactions: number; reasons: string }
-  | { action: 'block'; reason: string; risk: Risk }
-
-chrome.runtime.onMessage.addListener((message: PromptMessage, sender, sendResponse) => {
-  if (message?.type !== 'PROMPT_SUBMIT') {
-    return false
+const secretRegexes = [
+  /sk-[a-zA-Z0-9]{20,}/g,
+  /(?i)aws(.{0,10})?(access|secret)_?key[:=]\s*([A-Za-z0-9\/+=]{16,})/g,
+  /AIza[0-9A-Za-z\-_]{35}/g,
+  /\b\d{3}-\d{2}-\d{4}\b/g,
+  /\b(?:\d[ -]*?){13,19}\b/g
+]
+function sanitize(text: string): RedactionResult {
+  let redactions = 0
+  let sanitized = text
+  for (const re of secretRegexes) {
+    sanitized = sanitized.replace(re, () => { redactions++; return '[REDACTED]' })
   }
+  const reasons = redactions ? ['secrets_detected'] : []
+  return { sanitized, redactions, reasons }
+}
 
-  handlePrompt(message, sender)
-    .then((response) => sendResponse(response))
-    .catch((error) => {
-      console.error('[PromptShield] Sanitizer error', error)
-      notify('Prompt blocked', 'Guardrail failure. Prompt sanitized and blocked for safety.')
-      sendResponse({ action: 'block', reason: 'Sanitizer error', risk: 'critical' as Risk })
-    })
+function analyzeOutput(text: string) {
+  const findings: { type:string; line?:number; message:string; severity:'low'|'medium'|'high'|'critical' }[] = []
+  const lines = text.split(/\r?\n/)
+  const dangerCmd = /(rm -rf\s+\/|powershell\s+-enc|Invoke-WebRequest|curl\s+.*\|\s+sh)/i
+  const urlRe = /https?:\/\/[^\s)]+/ig
+  lines.forEach((ln, i)=>{
+    if (dangerCmd.test(ln)) findings.push({ type:'dangerous_command', line:i+1, message:'Potentially destructive command found', severity:'high' })
+    const urls = ln.match(urlRe)||[]
+    urls.forEach(u=>findings.push({ type:'url', line:i+1, message:`Link: ${u}`, severity:'medium' }))
+  })
+  if (/sk-[a-zA-Z0-9]{20,}/.test(text)) findings.push({ type:'secret_like', message:'API-key like token in output', severity:'high' })
+  return findings
+}
 
+async function logEvent(evt: any) {
+  /*
+   * Privacy by default: only hashed identifiers and tokenized samples are stored.
+   * No raw prompts, outputs, or user identifiers are persisted inside extension storage.
+   */
+  const key = 'ps:events'
+  const curr = (await chrome.storage.local.get([key]))[key] || []
+  // Cap 10k
+  curr.push(evt); if (curr.length > 10000) curr.shift()
+  await chrome.storage.local.set({ [key]: curr })
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  (async () => {
+    const policy = await getPolicy()
+    const allowlist = policy.allowlist || defaultPolicy.allowlist!
+    if (msg.type === 'PROMPT_SUBMIT') {
+      const url = new URL(msg.url)
+      const promptText = String(msg.prompt || '')
+      const detectors = evaluateDetectors(promptText)
+      const sanctioned = allowlist.some((h) => url.hostname.endsWith(h))
+      const { sanitized, redactions, reasons } = sanitize(promptText)
+
+      let inferredRisk: 'low' | 'medium' | 'high' | 'critical' = 'low'
+      if (redactions > 1) inferredRisk = 'critical'
+      else if (redactions === 1) inferredRisk = 'high'
+      else if (!sanctioned) inferredRisk = 'medium'
+      else if (detectors.financial || detectors.credentials) inferredRisk = 'medium'
+
+      const ctx = {
+        app: url.hostname,
+        host: url.hostname,
+        allowlist,
+        secretsFound: redactions > 0,
+        risk: inferredRisk,
+        detectors,
+      }
+
+      const decision = decide(policy, ctx)
+      const dry = Boolean(policy.dryRun)
+      const action = dry ? 'allow' : decision.action
+      const eventRisk = decision.rule?.riskLevel ?? inferredRisk
+      const salt = await getSalt()
+      await logEvent({
+        ts: Date.now(),
+        userHash: sha256('dev-user'),
+        hostHash: sha256(url.hostname),
+        app: url.hostname,
+        type: 'prompt',
+        action,
+        risk: eventRisk,
+        redactionCount: redactions,
+        sampleHash: tokenizeSample(promptText.slice(0, 256), salt),
+        dryRun: dry,
+      })
+
+      if (dry && decision.action !== 'allow') {
+        sendResponse({ action: 'allow', dryRun: true, wouldHave: decision.action, reason: decision.rule?.name })
+        return
+      }
+
+      if (decision.action === 'block') {
+        const reason = decision.rule?.name === 'Block unsanctioned AI'
+          ? 'This AI service is not approved. Redirecting to a sanctioned tool.'
+          : decision.rule?.name || 'Prompt blocked by policy.'
+        if (!dry && decision.rule?.name === 'Block unsanctioned AI' && policy.redirectTo) {
+          maybeRedirect(policy.redirectTo)
+        }
+        sendResponse({ action: 'block', reason })
+        return
+      }
+
+      if (decision.action === 'sanitize') {
+        sendResponse({ action: 'sanitize', text: sanitized, redactions, reasons })
+        return
+      }
+
+      sendResponse({ action: 'allow' })
+      return
+    }
+    if (msg.type === 'OUTPUT_OBSERVED') {
+      const url = new URL(msg.url)
+      const outputText = String(msg.text || '')
+      const findings = analyzeOutput(outputText)
+      const detectorHits = evaluateDetectors(outputText)
+      const risk = findings.length ? 'medium' : detectorHits.secrets ? 'high' : 'low'
+      await logEvent({
+        ts: Date.now(),
+        userHash: sha256('dev-user'),
+        hostHash: sha256(url.hostname),
+        app: url.hostname,
+        type: 'output',
+        action: 'allow',
+        risk,
+        findings,
+      })
+      sendResponse({ warnings: findings })
+      return
+    }
+    // Admin bridge messages
+    if (msg.type === 'PS_GET_POLICY') sendResponse(await getPolicy())
+    if (msg.type === 'PS_SET_POLICY') { await setPolicy(msg.policy); sendResponse({ ok:true }); return }
+    if (msg.type === 'PS_EXPORT_EVENTS') {
+      const rows = (await chrome.storage.local.get(['ps:events']))['ps:events']||[]
+      const ndjson = rows.map((r:any)=>JSON.stringify(r)).join('\n')
+      sendResponse({ ndjson })
+      return
+    }
+    if (msg.type === 'PS_DSR_PURGE') {
+      await purgeStorage()
+      sendResponse({ ok: true })
+      return
+    }
+  })()
   return true
 })
 
-async function handlePrompt(message: PromptMessage, sender: chrome.runtime.MessageSender): Promise<PromptResponse> {
-  const { prompt, url } = message
-  const urlHost = safeHost(url)
-
+function maybeRedirect(target: string) {
+  if (!target) return
   try {
-    const redactionResult = sanitizePrompt(prompt)
-    const risk = resolveRisk(redactionResult, urlHost)
-
-    await recordTelemetry({
-      prompt,
-      urlHost,
-      action: redactionResult.redactions > 0 ? 'sanitize' : 'allow',
-      risk,
-      redactionResult,
-      sender,
-    })
-
-    if (redactionResult.redactions > 0 && (risk === 'critical' || risk === 'medium')) {
-      notify('Prompt sanitized', `${redactionResult.redactions} sensitive tokens redacted`)
-      return {
-        action: 'sanitize',
-        text: redactionResult.sanitized,
-        risk,
-        redactions: redactionResult.redactions,
-        reasons: redactionResult.reasons,
-      }
+    const url = new URL(target)
+    const result = chrome.tabs.create({ url: url.toString() })
+    if (result && typeof (result as Promise<unknown>).catch === 'function') {
+      ;(result as Promise<unknown>).catch(() => {})
     }
-
-    if (risk === 'critical') {
-      notify('Prompt blocked', 'Critical risk detected. Submission blocked by PromptShield.')
-      return { action: 'block', reason: 'Critical risk detected', risk }
-    }
-
-    if (risk === 'medium') {
-      notify('Unsanctioned prompt', `Flagged ${urlHost} for analyst review`)
-    }
-
-    return { action: 'allow', risk }
   } catch (error) {
-    console.error('[PromptShield] Failed to process prompt', error)
-    return { action: 'block', reason: 'Processing failure', risk: 'critical' }
+    console.warn('[PromptShield] Redirect target invalid', error)
   }
 }
 
-function sanitizePrompt(prompt: string): RedactionResult {
-  const patterns: Array<{ regex: RegExp; label: string }> = [
-    { regex: /sk-[a-zA-Z0-9]{16,}/g, label: 'API key' },
-    { regex: /(?:^|\s)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?=\s|$)/g, label: 'Email address' },
-    { regex: /\b\d{3}-\d{2}-\d{4}\b/g, label: 'SSN' },
-    { regex: /\b\d{16}\b/g, label: '16-digit number' },
-    { regex: /(AKIA|ASIA|ACCA)[A-Z0-9]{16}/g, label: 'AWS access key' },
-  ]
-
-  let sanitized = prompt
-  let redactions = 0
-  const reasons = new Set<string>()
-
-  for (const { regex, label } of patterns) {
-    sanitized = sanitized.replace(regex, (match) => {
-      redactions += 1
-      reasons.add(label)
-      return `[REDACTED:${label.toUpperCase()}]`
-    })
-  }
-
-  return {
-    sanitized,
-    redactions,
-    reasons: reasons.size ? Array.from(reasons).join(', ') : 'No sensitive markers',
-  }
+async function purgeStorage() {
+  const localAll = await chrome.storage.local.get(null)
+  const syncAll = await chrome.storage.sync.get(null)
+  const localKeys = Object.keys(localAll).filter((key) => key.startsWith('ps:'))
+  const syncKeys = Object.keys(syncAll).filter((key) => key.startsWith('ps:'))
+  if (localKeys.length) await chrome.storage.local.remove(localKeys)
+  if (syncKeys.length) await chrome.storage.sync.remove(syncKeys)
 }
-
-function resolveRisk(result: RedactionResult, host: string): Risk {
-  if (result.redactions > 0) {
-    return 'critical'
-  }
-  if (!SANCTIONED_HOSTS.has(host)) {
-    return 'medium'
-  }
-  return 'low'
-}
-
-async function recordTelemetry(options: {
-  prompt: string
-  urlHost: string
-  action: Action
-  risk: Risk
-  redactionResult: RedactionResult
-  sender: chrome.runtime.MessageSender
-}) {
-  const { prompt, urlHost, action, risk, redactionResult, sender } = options
-  const tenantSalt = ensureTenantSalt(urlHost)
-  const userTokenSource = sender.tab?.id !== undefined ? `tab-${sender.tab.id}` : 'anonymous'
-  const sampleSalt = getRotatingSalt()
-
-  const [userHash, hostHash, sampleHash] = await Promise.all([
-    hashWithSalt(userTokenSource, tenantSalt),
-    hashWithSalt(urlHost, tenantSalt),
-    redactionResult.redactions > 0 ? hashWithSalt(prompt, sampleSalt) : Promise.resolve(undefined),
-  ])
-
-  const telemetry: TelemetryEvent = {
-    ts: Date.now(),
-    userHash,
-    hostHash,
-    app: urlHost,
-    type: 'prompt',
-    action,
-    risk,
-    redactionCount: redactionResult.redactions || undefined,
-    sampleHash,
-  }
-
-  telemetryBuffer.unshift(telemetry)
-  if (telemetryBuffer.length > 200) {
-    telemetryBuffer.length = 200
-  }
-}
-
-function ensureTenantSalt(host: string): string {
-  if (!tenantSalts.has(host)) {
-    tenantSalts.set(host, createSalt())
-  }
-  return tenantSalts.get(host) as string
-}
-
-function getRotatingSalt(): string {
-  if (Date.now() - rotatingSaltUpdatedAt > ROTATING_SALT_TTL) {
-    rotatingSalt = createSalt()
-    rotatingSaltUpdatedAt = Date.now()
-  }
-  return rotatingSalt
-}
-
-function createSalt(): string {
-  const bytes = new Uint8Array(16)
-  globalThis.crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function hashWithSalt(value: string, salt: string): Promise<string> {
-  const data = encoder.encode(`${value}|${salt}`)
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(digest))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).hostname
-  } catch (error) {
-    console.warn('[PromptShield] Unable to parse URL', url, error)
-    return 'unknown'
-  }
-}
-
-function notify(title: string, message: string) {
-  if (!chrome.notifications) {
-    console.warn('[PromptShield] Notifications API unavailable')
-    return
-  }
-  chrome.notifications.create({
-    type: 'basic',
-    title,
-    message,
-    iconUrl: ICON_DATA_URL,
-  })
-}
-
-// TODO: expose telemetryBuffer via chrome.runtime message for admin console bridge.

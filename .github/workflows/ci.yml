@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build browser extension
+        run: npm run -w packages/extension build
+
+      - name: Zip extension artifact
+        working-directory: packages/extension
+        run: |
+          zip -r ../../extension-dist.zip dist
+
+      - name: Build admin console
+        run: npm run -w packages/admin-console build
+
+      - name: Run admin console tests
+        run: npm run -w packages/admin-console test -- --run
+
+      - name: Upload extension dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-dist
+          path: extension-dist.zip
+
+      - name: Upload admin dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-dist
+          path: packages/admin-console/dist

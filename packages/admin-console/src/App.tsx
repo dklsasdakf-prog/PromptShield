@@ -2,11 +2,22 @@ import React, { useState } from 'react'
 import ComponentLibrarySpec from './components/ComponentLibrarySpec'
 import { ThemeProvider, Button } from './components/security-theme'
 import SecurityDashboard from './pages/SecurityDashboard'
+import PolicyEditor from './pages/PolicyEditor'
+import EventsPage from './pages/EventsPage'
+import AppCatalog from './pages/AppCatalog'
 
-type Route = 'dashboard' | 'components'
+type Route = 'overview' | 'policy' | 'events' | 'catalog' | 'components'
+
+const tabs: Array<{ key: Route; label: string }> = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'policy', label: 'Policy' },
+  { key: 'events', label: 'Events' },
+  { key: 'catalog', label: 'App Catalog' },
+  { key: 'components', label: 'Components' },
+]
 
 const App: React.FC = () => {
-  const [route, setRoute] = useState<Route>('dashboard')
+  const [route, setRoute] = useState<Route>('overview')
 
   return (
     <ThemeProvider>
@@ -17,26 +28,26 @@ const App: React.FC = () => {
               <span>PromptShield</span>
               <span className="text-[hsl(var(--accent-foreground))]">MVP</span>
             </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant={route === 'dashboard' ? 'primary' : 'outline'}
-                onClick={() => setRoute('dashboard')}
-              >
-                Security Dashboard
-              </Button>
-              <Button
-                size="sm"
-                variant={route === 'components' ? 'primary' : 'outline'}
-                onClick={() => setRoute('components')}
-              >
-                Component Library
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => (
+                <Button
+                  key={tab.key}
+                  size="sm"
+                  variant={route === tab.key ? 'primary' : 'outline'}
+                  onClick={() => setRoute(tab.key)}
+                >
+                  {tab.label}
+                </Button>
+              ))}
             </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl pb-12">
-          {route === 'dashboard' ? <SecurityDashboard /> : <ComponentLibrarySpec />}
+          {route === 'overview' && <SecurityDashboard />}
+          {route === 'policy' && <PolicyEditor />}
+          {route === 'events' && <EventsPage />}
+          {route === 'catalog' && <AppCatalog />}
+          {route === 'components' && <ComponentLibrarySpec />}
         </main>
       </div>
     </ThemeProvider>

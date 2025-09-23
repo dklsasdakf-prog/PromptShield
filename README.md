@@ -17,3 +17,10 @@ PromptShield is a detect-first guardrail layer for enterprise AI usage across we
 - Sanitization errors fail closed: prompts are blocked and analysts are alerted.
 - The extension currently issues Chrome notifications as interim UX while the in-page banner is under construction.
 - Load the unpacked extension from `packages/extension/dist/` after running the build step and test on ChatGPT, Claude, Gemini, or Copilot web UIs.
+
+## Privacy by Default
+
+- **Hashed identifiers**: user and host identifiers are SHA-256 hashed with per-tenant salts; prompt and output samples are tokenized with a daily rotating salt (`ps:salt:<YYYY-MM-DD>`).
+- **Storage scope**: telemetry lives under `ps:*` keys in extension storage with a rolling cap of 10,000 records; no raw prompts or outputs persist locally.
+- **Retention**: salts rotate every 24 hours and telemetry can be purged instantly via the `PS_DSR_PURGE` message for data subject requests (DSR).
+- **Fail-closed**: sanitizer errors or unsanctioned hosts block submissions and prompt users with compliance guidance.

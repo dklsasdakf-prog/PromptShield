@@ -4,10 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node ./scripts/dev-copy.mjs",
-    "dev": "node ./scripts/dev-copy.mjs --watch"
+    "build": "tsup",
+    "dev": "chokidar 'src/**/*.ts' -c 'npm -w packages/extension run build'"
   },
   "devDependencies": {
-    "esbuild": "^0.25.10"
+    "chokidar": "^3.6.0",
+    "esbuild": "^0.25.10",
+    "nanoid": "^5.1.6",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "webextension-polyfill": "^0.12.0",
+    "zod": "^4.1.11"
   }
 }

@@ -295,7 +295,7 @@ const PolicyRuleBuilder: React.FC = () => {
   )
 }
 
-const BannerToastPreview: React.FC = () => {
+export const BannerToastPreview: React.FC = () => {
   const [isToastVisible, setIsToastVisible] = useState(false)
 
   return (
@@ -317,8 +317,11 @@ const BannerToastPreview: React.FC = () => {
         </Button>
       </div>
       {isToastVisible ? (
-        <div className="ml-auto w-full max-w-sm rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-overlay" role="status">
-          <div className="flex items-start gap-2">
+        <div
+          className="ml-auto w-full max-w-sm rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-overlay"
+          role="alert"
+        >
+          <div className="flex items-start justify-between gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
             <div className="space-y-1 text-sm">
               <p className="font-semibold text-[hsl(var(--foreground))]">Transcript scrubbed</p>
@@ -326,6 +329,13 @@ const BannerToastPreview: React.FC = () => {
                 Sanitized output ready. Review in Trust Zone or escalate for step-up auth.
               </p>
             </div>
+            <button
+              type="button"
+              className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--accent-foreground))]"
+              onClick={() => setIsToastVisible(false)}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       ) : null}
