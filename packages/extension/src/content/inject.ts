@@ -1,9 +1,11 @@
 declare const chrome: any
 
+import { dismissPanel, showBlockPanel, showInfoPanel, showSanitizedPanel, coercePanelRisk } from './panel'
+
 type PromptResponse =
-  | { action: 'allow'; risk: string }
-  | { action: 'sanitize'; text: string; risk: string; redactions: number; reasons: string }
-  | { action: 'block'; reason: string; risk: string }
+  | { action: 'allow'; risk?: string; dryRun?: boolean; wouldHave?: string; reason?: string }
+  | { action: 'sanitize'; text: string; risk?: string; redactions: number; reasons: string[] }
+  | { action: 'block'; reason: string; risk?: string }
 
 type HookedForm = {
   textarea: HTMLTextAreaElement
@@ -92,12 +94,24 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
         if (!response) return
 
         if (response.action === 'block') {
-          displayInlineBanner(textarea, response.reason)
+          showBlockPanel({
+            target: textarea,
+            reason: response.reason,
+            risk: coercePanelRisk(response.risk),
+            pills: response.reason ? [response.reason] : undefined,
+          })
           return
         }
 
         if (response.action === 'sanitize') {
           textarea.value = response.text
+          showSanitizedPanel({
+            target: textarea,
+            sanitized: response.text,
+            redactions: response.redactions,
+            reasons: response.reasons,
+            risk: coercePanelRisk(response.risk),
+          })
         }
 
         form.dataset.promptshieldBypass = 'true'
@@ -109,7 +123,11 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
       })
       .catch((error) => {
         console.error('[PromptShield] prompt submission failed', error)
-        displayInlineBanner(textarea, 'Prompt blocked: guardrail unavailable')
+        showBlockPanel({
+          target: textarea,
+          reason: 'Prompt blocked: guardrail unavailable',
+          risk: 'critical',
+        })
       })
   }
 
@@ -133,18 +151,34 @@ function interceptForm(form: HTMLFormElement, textarea: HTMLTextAreaElement) {
           .then((response) => {
             if (!response) return
             if (response.action === 'block') {
-              displayInlineBanner(textarea, response.reason)
+              showBlockPanel({
+                target: textarea,
+                reason: response.reason,
+                risk: coercePanelRisk(response.risk),
+                pills: response.reason ? [response.reason] : undefined,
+              })
               return
             }
             if (response.action === 'sanitize') {
               textarea.value = response.text
+              showSanitizedPanel({
+                target: textarea,
+                sanitized: response.text,
+                redactions: response.redactions,
+                reasons: response.reasons,
+                risk: coercePanelRisk(response.risk),
+              })
             }
             form.dataset.promptshieldBypass = 'true'
             ;(event.currentTarget as HTMLElement).dispatchEvent(new MouseEvent('click'))
           })
           .catch((error) => {
             console.error('[PromptShield] submit click failed', error)
-            displayInlineBanner(textarea, 'Prompt blocked: guardrail unavailable')
+            showBlockPanel({
+              target: textarea,
+              reason: 'Prompt blocked: guardrail unavailable',
+              risk: 'critical',
+            })
           })
       },
       { capture: true },
@@ -173,17 +207,43 @@ function interceptStandalone(textarea: HTMLTextAreaElement) {
       .then((response) => {
         if (!response) return
         if (response.action === 'block') {
-          displayInlineBanner(textarea, response.reason)
+          showBlockPanel({
+            target: textarea,
+            reason: response.reason,
+            risk: coercePanelRisk(response.risk),
+            pills: response.reason ? [response.reason] : undefined,
+          })
           return
         }
         if (response.action === 'sanitize') {
           textarea.value = response.text
+          showSanitizedPanel({
+            target: textarea,
+            sanitized: response.text,
+            redactions: response.redactions,
+            reasons: response.reasons,
+            risk: coercePanelRisk(response.risk),
+          })
+        }
+        if (response.dryRun && response.wouldHave) {
+          showInfoPanel({
+            target: textarea,
+            title: 'Policy dry-run',
+            message: `Request allowed in dry-run mode. Enforcement would ${response.wouldHave}.`,
+            pills: response.reason ? [response.reason] : undefined,
+          })
+        } else {
+          dismissPanel()
         }
         dispatchNativeEnter(textarea)
       })
       .catch((error) => {
         console.error('[PromptShield] standalone intercept failed', error)
-        displayInlineBanner(textarea, 'Prompt blocked: guardrail unavailable')
+        showBlockPanel({
+          target: textarea,
+          reason: 'Prompt blocked: guardrail unavailable',
+          risk: 'critical',
+        })
       })
   })
 
@@ -221,55 +281,4 @@ function dispatchNativeEnter(textarea: HTMLTextAreaElement) {
     cancelable: true,
   })
   textarea.dispatchEvent(event)
-}
-
-function displayInlineBanner(target: HTMLElement, message: string) {
-  const parent = target.parentElement
-  if (!parent) {
-    return
-  }
-
-  const existing = parent.querySelector('[data-promptshield-banner]') as HTMLElement | null
-  if (existing) {
-    const messageNode = existing.querySelector('[data-promptshield-banner-message]') as HTMLElement | null
-    if (messageNode) {
-      messageNode.textContent = message
-    }
-    return
-  }
-
-  const container = document.createElement('div')
-  container.dataset.promptshieldBanner = 'true'
-  container.setAttribute('role', 'alert')
-  container.style.position = 'relative'
-  container.style.top = '0'
-  container.style.marginBottom = '8px'
-  container.style.padding = '8px 12px'
-  container.style.border = '1px solid rgba(248, 113, 113, 0.4)'
-  container.style.borderRadius = '8px'
-  container.style.background = 'rgba(248, 113, 113, 0.12)'
-  container.style.color = '#b91c1c'
-  container.style.fontSize = '12px'
-  container.style.display = 'flex'
-  container.style.alignItems = 'center'
-  container.style.justifyContent = 'space-between'
-  container.style.gap = '8px'
-
-  const textNode = document.createElement('span')
-  textNode.dataset.promptshieldBannerMessage = 'true'
-  textNode.textContent = message
-  container.appendChild(textNode)
-
-  const dismiss = document.createElement('button')
-  dismiss.textContent = 'Dismiss'
-  dismiss.style.border = 'none'
-  dismiss.style.background = 'transparent'
-  dismiss.style.cursor = 'pointer'
-  dismiss.style.color = '#b91c1c'
-  dismiss.style.fontSize = '12px'
-  dismiss.addEventListener('click', () => container.remove())
-
-  container.appendChild(dismiss)
-
-  parent.insertBefore(container, target)
 }

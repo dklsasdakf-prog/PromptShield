@@ -12,7 +12,8 @@ PromptShield delivers detect-first guardrails for enterprise AI usage. This star
 - **Risk-adaptive policy authoring**: Create ordered rules with actions (`allow`, `block`, `sanitize`, `flag`), dry-run toggles, feature flags, and sanctioned redirect targets.
 - **Sanctioned app catalog**: Manage AI hosts from the console; synced allowlist drives extension enforcement and redirects unsanctioned traffic.
 - **Privacy-preserving telemetry**: Prompts/token samples are tokenized with rotating salts, identifiers are SHA-256 hashed, and telemetry retains only bounded NDJSON event buffers.
-- **Automated redaction & coaching**: Secrets detectors and regex sanitizers redact risky tokens, show inline banners, and offer "copy safely" output workflows.
+- **Automated redaction & coaching**: Secrets detectors, PII/financial classifiers, and regex sanitizers redact risky tokens, show admin-themed guardrail panels, and offer "copy safely" output workflows.
+- **Admin-aligned extension UX**: Prompt interceptions surface control-tower inspired overlays with risk badges, sanitized previews, dry-run insights, and Chrome toasts that reuse the security theme tokens.
 - **Virtualized analyst views**: Security dashboard and events table provide high-volume event handling with risk badges, operational checklists, and export tooling.
 
 ## Getting Started
@@ -29,7 +30,8 @@ PromptShield delivers detect-first guardrails for enterprise AI usage. This star
 ## Privacy & Security Defaults
 - Sanitizer failures and unknown hosts fail-closed, optionally redirecting users to approved surfaces.
 - `PS_DSR_PURGE` message clears all namespaced telemetry keys for privacy requests.
-- Output vetting flags destructive shell patterns and suspicious URLs, piping warnings back to analysts and end-users via toast notifications.
+- Output vetting flags destructive shell patterns, suspicious URLs, and compliance markers with themed toasts plus NDJSON export for audit partners.
+- Decision memory caches hashed prompts for five minutes to avoid duplicate pop-ups while keeping fail-closed behaviour intact.
 
 ## Roadmap
 The native agent remains a stub until Phase 2, where it will inherit clipboard governance, screenshot blurring, and signed installer delivery. Shared contracts are ready for reuse across backend policy services when you introduce persistence or approval workflows.

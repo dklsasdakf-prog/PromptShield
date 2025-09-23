@@ -1,7 +1,39 @@
-import { defaultPolicy, Policy, RedactionResult } from '../../../shared/index'
+import { defaultPolicy, Policy, RedactionResult, type Action, type Risk } from '../../../shared/index'
 import { sha256, tokenizeSample, dateKey } from '../../../shared/tokenize'
 import { decide } from '../../../shared/policy'
-import { evaluateDetectors } from '../../../shared/detectors'
+import { evaluateDetectors, type DetectorMap } from '../../../shared/detectors'
+
+type CachedDecision = {
+  action: Action
+  risk: Risk
+  reason?: string
+  sanitized?: string
+  redactions?: number
+  reasons?: string[]
+  expiresAt: number
+}
+
+const DECISION_TTL_MS = 5 * 60 * 1000
+const MAX_DECISIONS = 100
+
+const decisionMemory = new Map<string, CachedDecision>()
+
+const riskOrder: Risk[] = ['low', 'medium', 'high', 'critical']
+const riskScore = (value: Risk) => riskOrder.indexOf(value)
+
+const redactionPatterns: Array<{ regex: RegExp; reason: string }> = [
+  { regex: /sk-[a-zA-Z0-9]{20,}/g, reason: 'secret' },
+  { regex: /(AKIA|ASIA)[A-Z0-9]{16}/g, reason: 'secret' },
+  { regex: /AIza[0-9A-Za-z\-_]{20,}/g, reason: 'secret' },
+  { regex: /\b\d{3}-\d{2}-\d{4}\b/g, reason: 'pii' },
+  {
+    regex: /\b(?:\+?\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+    reason: 'pii',
+  },
+  { regex: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, reason: 'pii' },
+  { regex: /\b(?:\d[ -]?){12,19}\b/g, reason: 'financial' },
+  { regex: /(password|passwd|pwd)\s*[:=]\s*\S+/gi, reason: 'credential' },
+]
 
 async function getPolicy(): Promise<Policy> {
   const p = await chrome.storage.sync.get(['ps:policy'])
@@ -18,21 +50,18 @@ async function getSalt(): Promise<string> {
   return v
 }
 
-const secretRegexes = [
-  /sk-[a-zA-Z0-9]{20,}/g,
-  /aws(.{0,10})?(access|secret)_?key[:=]\s*([A-Za-z0-9\/+=]{16,})/gi,
-  /AIza[0-9A-Za-z\-_]{35}/g,
-  /\b\d{3}-\d{2}-\d{4}\b/g,
-  /\b(?:\d[ -]*?){13,19}\b/g
-]
 function sanitize(text: string): RedactionResult {
   let redactions = 0
   let sanitized = text
-  for (const re of secretRegexes) {
-    sanitized = sanitized.replace(re, () => { redactions++; return '[REDACTED]' })
+  const reasons = new Set<string>()
+  for (const { regex, reason } of redactionPatterns) {
+    sanitized = sanitized.replace(regex, () => {
+      redactions += 1
+      reasons.add(reason)
+      return '[REDACTED]'
+    })
   }
-  const reasons = redactions ? ['secrets_detected'] : []
-  return { sanitized, redactions, reasons }
+  return { sanitized, redactions, reasons: Array.from(reasons) }
 }
 
 function analyzeOutput(text: string) {
@@ -69,14 +98,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const url = new URL(msg.url)
       const promptText = String(msg.prompt || '')
       const detectors = evaluateDetectors(promptText)
+      const fingerprint = await fingerprintPrompt(promptText)
+      const cached = recallDecision(fingerprint)
+      if (cached) {
+        sendResponse(mapCachedToResponse(cached))
+        return
+      }
       const sanctioned = allowlist.some((h) => url.hostname.endsWith(h))
       const { sanitized, redactions, reasons } = sanitize(promptText)
 
-      let inferredRisk: 'low' | 'medium' | 'high' | 'critical' = 'low'
-      if (redactions > 1) inferredRisk = 'critical'
-      else if (redactions === 1) inferredRisk = 'high'
-      else if (!sanctioned) inferredRisk = 'medium'
-      else if (detectors.financial || detectors.credentials) inferredRisk = 'medium'
+      const inferredRisk = deriveRisk({ detectors, redactions, sanctioned })
 
       const ctx = {
         app: url.hostname,
@@ -105,8 +136,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         dryRun: dry,
       })
 
+      rememberDecision(fingerprint, {
+        action,
+        risk: eventRisk,
+        reason: decision.rule?.name || reasons[0],
+        sanitized: decision.action === 'sanitize' ? sanitized : undefined,
+        redactions,
+        reasons,
+      })
+
       if (dry && decision.action !== 'allow') {
-        sendResponse({ action: 'allow', dryRun: true, wouldHave: decision.action, reason: decision.rule?.name })
+        sendResponse({
+          action: 'allow',
+          dryRun: true,
+          wouldHave: decision.action,
+          reason: decision.rule?.name,
+          risk: eventRisk,
+        })
         return
       }
 
@@ -117,16 +163,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (!dry && decision.rule?.name === 'Block unsanctioned AI' && policy.redirectTo) {
           maybeRedirect(policy.redirectTo)
         }
-        sendResponse({ action: 'block', reason })
+        sendResponse({ action: 'block', reason, risk: eventRisk })
         return
       }
 
       if (decision.action === 'sanitize') {
-        sendResponse({ action: 'sanitize', text: sanitized, redactions, reasons })
+        sendResponse({ action: 'sanitize', text: sanitized, redactions, reasons, risk: eventRisk })
         return
       }
 
-      sendResponse({ action: 'allow' })
+      sendResponse({ action: 'allow', risk: eventRisk })
       return
     }
     if (msg.type === 'OUTPUT_OBSERVED') {
@@ -134,7 +180,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const outputText = String(msg.text || '')
       const findings = analyzeOutput(outputText)
       const detectorHits = evaluateDetectors(outputText)
-      const risk = findings.length ? 'medium' : detectorHits.secrets ? 'high' : 'low'
+      const risk = deriveRisk({ detectors: detectorHits, redactions: 0, sanctioned: true, findingsCount: findings.length })
       await logEvent({
         ts: Date.now(),
         userHash: await sha256('dev-user'),
@@ -186,4 +232,90 @@ async function purgeStorage() {
   const syncKeys = Object.keys(syncAll).filter((key) => key.startsWith('ps:'))
   if (localKeys.length) await chrome.storage.local.remove(localKeys)
   if (syncKeys.length) await chrome.storage.sync.remove(syncKeys)
+}
+
+function deriveRisk({
+  detectors,
+  redactions,
+  sanctioned,
+  findingsCount = 0,
+}: {
+  detectors: DetectorMap
+  redactions: number
+  sanctioned: boolean
+  findingsCount?: number
+}): Risk {
+  let highest: Risk = 'low'
+
+  const promote = (value: Risk) => {
+    if (riskScore(value) > riskScore(highest)) {
+      highest = value
+    }
+  }
+
+  if (redactions >= 2) promote('critical')
+  else if (redactions === 1) promote('high')
+
+  if (detectors.secrets) promote('critical')
+  if (detectors.financial || detectors.credentials) promote('high')
+  if (detectors.pii) promote('high')
+  if (detectors.sourceCode) promote('medium')
+  if (detectors.compliance) promote('medium')
+
+  if (!sanctioned) promote('medium')
+  if (findingsCount > 0) promote('medium')
+
+  return highest
+}
+
+async function fingerprintPrompt(text: string) {
+  return sha256(`${dateKey()}::${text}`)
+}
+
+function rememberDecision(fingerprint: string, record: Omit<CachedDecision, 'expiresAt'>) {
+  const entry: CachedDecision = {
+    ...record,
+    expiresAt: Date.now() + DECISION_TTL_MS,
+  }
+  decisionMemory.set(fingerprint, entry)
+
+  if (decisionMemory.size > MAX_DECISIONS) {
+    const oldestKey = decisionMemory.keys().next().value as string | undefined
+    if (oldestKey) {
+      decisionMemory.delete(oldestKey)
+    }
+  }
+}
+
+function recallDecision(fingerprint: string): CachedDecision | null {
+  const cached = decisionMemory.get(fingerprint)
+  if (!cached) return null
+  if (cached.expiresAt < Date.now()) {
+    decisionMemory.delete(fingerprint)
+    return null
+  }
+  return cached
+}
+
+function mapCachedToResponse(record: CachedDecision) {
+  if (record.action === 'block') {
+    return {
+      action: 'block' as const,
+      reason: record.reason ?? 'Prompt blocked by policy.',
+      risk: record.risk,
+    }
+  }
+  if (record.action === 'sanitize') {
+    return {
+      action: 'sanitize' as const,
+      text: record.sanitized ?? '',
+      redactions: record.redactions ?? 0,
+      reasons: record.reasons ?? [],
+      risk: record.risk,
+    }
+  }
+  return {
+    action: 'allow' as const,
+    risk: record.risk,
+  }
 }

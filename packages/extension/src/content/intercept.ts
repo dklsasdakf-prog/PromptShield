@@ -1,4 +1,5 @@
 import { Targets } from '../shared/site-selectors'
+import { coercePanelRisk, dismissPanel, showBlockPanel, showInfoPanel, showSanitizedPanel } from './panel'
 
 type OutputWarning = { type: string; line?: number; message: string; severity: string }
 
@@ -13,10 +14,15 @@ function findPromptEl(): HTMLTextAreaElement | HTMLInputElement | null {
   return document.querySelector(match.prompt) as any
 }
 
-async function sendPrompt(prompt: string) {
+async function sendPrompt(prompt: string, target?: HTMLElement) {
   const res = await chrome.runtime.sendMessage({ type: 'PROMPT_SUBMIT', prompt, url: location.href })
   if (!res) return prompt
   if (res.action === 'block') {
+    showBlockPanel({
+      target,
+      reason: res.reason || 'Prompt blocked by policy.',
+      risk: coercePanelRisk(res.risk),
+    })
     window.dispatchEvent(
       new CustomEvent('promptshield:coach', {
         detail: {
@@ -29,6 +35,13 @@ async function sendPrompt(prompt: string) {
     throw new Error('Prompt blocked')
   }
   if (res.action === 'sanitize' && res.text) {
+    showSanitizedPanel({
+      target,
+      sanitized: res.text,
+      redactions: res.redactions,
+      reasons: res.reasons ?? [],
+      risk: coercePanelRisk(res.risk),
+    })
     window.dispatchEvent(
       new CustomEvent('promptshield:coach', {
         detail: {
@@ -39,6 +52,16 @@ async function sendPrompt(prompt: string) {
       }),
     )
     return res.text
+  }
+  if (res.dryRun && res.wouldHave) {
+    showInfoPanel({
+      target,
+      title: 'Policy dry-run',
+      message: `Request allowed in dry-run mode. Enforcement would ${res.wouldHave}.`,
+      pills: res.reason ? [res.reason] : undefined,
+    })
+  } else {
+    dismissPanel()
   }
   return prompt
 }
@@ -51,7 +74,7 @@ function hookSubmit() {
       const target = e.target as HTMLTextAreaElement
       const original = target.value || (target as any).innerText || ''
       try {
-        const safe = await sendPrompt(original)
+        const safe = await sendPrompt(original, target)
         if (safe !== original) {
           target.value = safe
           ;(target as any).dispatchEvent(new Event('input', { bubbles:true }))

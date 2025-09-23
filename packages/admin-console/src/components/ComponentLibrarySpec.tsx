@@ -52,11 +52,11 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({ level, score, condensed })
   <span
     data-testid="risk-badge"
     aria-label={`risk-${level}${score !== undefined ? `-score-${score}` : ''}`}
-    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${riskPalette[level].bg}`}
+    className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium uppercase shrink-0 w-fit ${riskPalette[level].bg}`}
   >
-    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+    <span className="inline-flex h-1 w-1 rounded-full bg-current shrink-0" aria-hidden />
     {condensed ? level[0].toUpperCase() : level}
-    {score !== undefined ? <span className="font-normal">{score}</span> : null}
+    {score !== undefined ? <span className="font-normal text-[10px]">{score}</span> : null}
   </span>
 )
 
@@ -95,6 +95,7 @@ export interface VirtualizedTableEvent {
   timestamp: string
   app: string
   risk: RiskLevel
+  identity: string
   action: string
   preview: string
 }
@@ -137,11 +138,12 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({ events }) =>
         role="table"
         aria-label="Virtualized events table"
       >
-        <div className="sticky top-0 z-10 grid grid-cols-[120px,160px,160px,120px,1fr] border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.9)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+        <div className="sticky top-0 z-10 grid grid-cols-[120px,160px,160px,120px,120px,1fr] border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.9)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
           <span>ID</span>
           <span>Timestamp</span>
           <span>App</span>
           <span>Risk</span>
+          <span>Identity</span>
           <span>Outcome</span>
         </div>
         <div style={{ height: rows.length * rowHeight }}>
@@ -149,7 +151,7 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({ events }) =>
             {visibleRows.map((row) => (
               <div
                 key={row.id}
-                className="grid grid-cols-[120px,160px,160px,120px,1fr] items-center border-b border-[hsla(var(--border),0.6)] px-4"
+                className="grid grid-cols-[120px,160px,160px,120px,120px,1fr] items-center border-b border-[hsla(var(--border),0.6)] px-4"
                 style={{ height: rowHeight }}
                 role="row"
               >
@@ -157,10 +159,11 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({ events }) =>
                 <span className="text-[hsl(var(--muted-foreground))]">{row.timestamp}</span>
                 <span className="font-medium text-[hsl(var(--foreground))]">{row.app}</span>
                 <RiskBadge level={row.risk} condensed />
-                <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                <span className="text-xs text-[hsl(var(--muted-foreground))] font-medium">{row.identity}</span>
+                <span className="text-xs text-[hsl(var(--muted-foreground))] break-words overflow-hidden leading-tight max-w-full">
                   <span className="font-semibold text-[hsl(var(--foreground))]">{row.action}</span>
                   {' • '}
-                  {row.preview}
+                  <span className="truncate inline-block max-w-[200px]" title={row.preview}>{row.preview}</span>
                 </span>
               </div>
             ))}
@@ -466,6 +469,7 @@ const ComponentLibrarySpec: React.FC = () => {
         timestamp: new Date(Date.now() - index * 42000).toLocaleTimeString(),
         app: ['chat.openai.com', 'claude.ai', 'gemini.google.com', 'copilot.microsoft.com'][index % 4],
         risk: ['low', 'medium', 'high', 'critical'][index % 4] as RiskLevel,
+        identity: ['alice@company.com', 'bob@company.com', 'charlie@company.com', 'diana@company.com'][index % 4],
         action: ['allow', 'flag', 'sanitize', 'block'][index % 4],
         preview: index % 2 === 0 ? 'tokenized payload' : 'policy baseline',
       })),
