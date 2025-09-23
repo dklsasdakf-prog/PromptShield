@@ -248,7 +248,7 @@ const SecurityDashboard: React.FC = () => {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr),minmax(0,1fr),minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)] xl:grid-cols-[minmax(0,1.6fr),minmax(0,1fr)]">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -314,68 +314,7 @@ const SecurityDashboard: React.FC = () => {
             ))}
           </CardContent>
         </Card>
-
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Target className="h-5 w-5" aria-hidden />
-              Trust Zone
-            </CardTitle>
-            <CardDescription>Tokenized transcripts available for analysts with scope-bound access.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-dashed border-[hsl(var(--border))] px-4 py-3 text-xs">
-              <p className="font-semibold text-[hsl(var(--foreground))]">Fail-closed mode engaged</p>
-              <p className="mt-1 text-[hsl(var(--muted-foreground))]">
-                Sanitizer unavailable? Prompts blocked, transcripts hashed with rotating salt.
-              </p>
-            </div>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Analysts on-duty</span>
-                <span className="font-semibold text-[hsl(var(--foreground))]">6</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Tokenized transcripts</span>
-                <span className="font-semibold text-[hsl(var(--foreground))]">284</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[hsl(var(--muted-foreground))]">Pending escalations</span>
-                <span className="font-semibold text-[hsl(var(--foreground))]">3</span>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" className="w-full">
-              <Globe2 className="mr-2 h-3.5 w-3.5" aria-hidden />
-              Enter Trust Zone workspace
-            </Button>
-          </CardContent>
-        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ListChecks className="h-5 w-5" aria-hidden />
-            Operational checklist
-          </CardTitle>
-          <CardDescription>
-            Daily readiness items before enabling auto-approvals or wider tenant rollout.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            'Verify tenant salts rotated',
-            'Confirm sanitizer regex bundle',
-            'Review yesterday’s shadow AI alerts',
-            'Run policy diff approval workflow',
-          ].map((item) => (
-            <div key={item} className="flex items-center gap-3 rounded-lg border border-[hsla(var(--border),0.7)] px-4 py-3 text-xs">
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--accent-foreground))]" aria-hidden />
-              <span className="text-[hsl(var(--foreground))]">{item}</span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   )
 }
