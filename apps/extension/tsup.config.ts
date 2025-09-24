@@ -3,7 +3,6 @@ export default defineConfig({
   entry: {
     'background/index': 'src/background/index.ts',
     'content/inject': 'src/content/inject.ts',
-    'content/intercept': 'src/content/intercept.ts',
     'content/coach': 'src/content/coach.ts'
   },
   format: ['esm'],

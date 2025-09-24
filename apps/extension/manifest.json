@@ -23,7 +23,7 @@
         "<all_urls>"
       ],
       "js": [
-        "content/intercept.js",
+        "content/inject.js",
         "content/coach.js"
       ],
       "run_at": "document_idle"

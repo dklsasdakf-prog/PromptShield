@@ -1,7 +1,18 @@
 {
   "name": "checkred-ai-security",
   "private": true,
+  "packageManager": "pnpm@9",
   "workspaces": [
-    "packages/*"
-  ]
+    "apps/*",
+    "shared/ts"
+  ],
+  "scripts": {
+    "test:e2e": "playwright test",
+    "pretest:e2e": "pnpm --filter @checkred-ai-security/extension build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.46.1",
+    "@types/node": "^20.16.0",
+    "typescript": "^5.5.4"
+  }
 }

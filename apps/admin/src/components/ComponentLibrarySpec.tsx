@@ -666,7 +666,7 @@ const ComponentLibrarySpec: React.FC = () => {
           Brand Identity
         </CardTitle>
         <CardDescription>
-          Checkred AI Security's security-focused visual identity and design system components.
+          Checkred AI Security&apos;s security-focused visual identity and design system components.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -776,7 +776,7 @@ const BrandGuidelines: React.FC = () => (
           </ul>
         </Card>
         <Card className="p-4">
-          <h4 className="font-medium mb-2 text-red-700">Don't Use</h4>
+          <h4 className="font-medium mb-2 text-red-700">Don&apos;t Use</h4>
           <ul className="text-sm space-y-1 text-muted-foreground">
             <li>• Alarmist or fear-mongering</li>
             <li>• Overly technical jargon</li>

@@ -1,4 +1,4 @@
-import type { Policy, TelemetryEvent } from '../../../shared'
+import type { Policy, TelemetryEvent } from '@checkred-ai-security/shared'
 
 const POLICY_KEY = 'ps:policy-ui'
 const EVENTS_KEY = 'ps:events-ui'

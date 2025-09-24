@@ -17,6 +17,11 @@ const STYLE_CONTENT = `:root { color-scheme: light dark; }
 .checkred-badge[data-risk="info"] { background: rgba(59,130,246,0.18); color: #1d4ed8; }
 .checkred-subtle { color: rgba(15,23,42,0.55); font-size: 12px; }
 .checkred-preview { border: 1px dashed rgba(148,163,184,0.55); background: rgba(148,163,184,0.08); border-radius: 12px; padding: 12px; max-height: 160px; overflow-y: auto; font-size: 13px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.checkred-preview--inline { font-family: inherit; }
+.checkred-inline { display: inline; padding: 0 4px; margin: 0 1px; border-radius: 6px; font-weight: 600; background: rgba(59,130,246,0.15); color: #1d4ed8; }
+.checkred-inline[data-kind="pii"] { background: rgba(251,191,36,0.2); color: #92400e; }
+.checkred-inline[data-kind="secret"] { background: rgba(248,113,113,0.25); color: #b91c1c; }
+.checkred-inline[data-kind="code"] { background: rgba(59,130,246,0.18); color: #1d4ed8; }
 .checkred-button { appearance: none; border-radius: 999px; border: 1px solid transparent; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s ease; font-family: inherit; }
 .checkred-button:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
 .checkred-button--primary { background: #2563eb; color: #f8fafc; box-shadow: 0 10px 30px rgba(37,99,235,0.25); }
@@ -48,6 +53,10 @@ const STYLE_CONTENT = `:root { color-scheme: light dark; }
   .checkred-card p { color: rgba(226,232,240,0.75); }
   .checkred-subtle { color: rgba(148,163,184,0.75); }
   .checkred-preview { background: rgba(30,41,59,0.66); border-color: rgba(148,163,184,0.35); color: #e2e8f0; }
+  .checkred-inline { background: rgba(59,130,246,0.18); color: #93c5fd; }
+  .checkred-inline[data-kind="pii"] { background: rgba(251,191,36,0.22); color: #facc15; }
+  .checkred-inline[data-kind="secret"] { background: rgba(248,113,113,0.28); color: #fca5a5; }
+  .checkred-inline[data-kind="code"] { background: rgba(59,130,246,0.24); color: #93c5fd; }
   .checkred-button--ghost { color: #93c5fd; border-color: rgba(148,163,184,0.35); }
   .checkred-button--ghost:hover { background: rgba(59,130,246,0.18); }
   .checkred-button--primary { background: #3b82f6; color: #f8fafc; }

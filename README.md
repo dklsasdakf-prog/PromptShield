@@ -1,31 +1,45 @@
 # Checkred AI Security Repository
 
-Checkred AI Security delivers detect-first guardrails for enterprise AI usage. This starter monorepo ships the analyst-facing admin console, a Chrome-compatible browser extension, shared policy contracts, and a future native agent surface for OS-level controls.
+Checkred AI Security delivers detect-first guardrails for enterprise AI usage. This monorepo now ships:
+
+* a FastAPI backend for telemetry ingest, policy management, and signed config delivery;
+* the analyst-facing admin console (React + Vite + shadcn/ui) wired to those APIs;
+* a Manifest V3 browser extension with DOM-Shield, detectors, tokenization, and pre-send gating;
+* shared policy/detector types consumed by both the backend and front-end bundles.
 
 ## Repository Layout
-- `packages/admin-console` – React + Vite control tower with dashboards, policy editor, sanctioned app catalog, and telemetry viewer.
-- `packages/extension` – Manifest V3 extension that intercepts prompts, sanitizes secrets, vets outputs, and syncs policy + telemetry via Chrome storage.
-- `packages/shared` – TypeScript contracts, policy decision engine, detector library, and hashing helpers consumed by both UI and extension runtimes.
-- `packages/native-agent` – Placeholder for the native companion responsible for clipboard hardening, screenshots, and IPC.
+- `apps/admin` – Admin console (React 18 + Vite + Tailwind + shadcn/ui).
+- `apps/extension` – Manifest V3 extension bundled with tsup.
+- `apps/native-agent` – Placeholder for the future native companion responsible for clipboard hardening, screenshots, and IPC.
+- `backend/api` – FastAPI service, Alembic migrations, and OpenSearch integration.
+- `shared/ts` – shared TypeScript types/utilities (policy spec, detectors interfaces, tokenization helpers).
+- `infra` – docker-compose for local Postgres + OpenSearch.
 
-## Feature Highlights
-- **Risk-adaptive policy authoring**: Create ordered rules with actions (`allow`, `block`, `sanitize`, `flag`), dry-run toggles, feature flags, and sanctioned redirect targets.
-- **Sanctioned app catalog**: Manage AI hosts from the console; synced allowlist drives extension enforcement and redirects unsanctioned traffic.
-- **Privacy-preserving telemetry**: Prompts/token samples are tokenized with rotating salts, identifiers are SHA-256 hashed, and telemetry retains only bounded NDJSON event buffers.
-- **Automated redaction & coaching**: Secrets detectors, PII/financial classifiers, and regex sanitizers redact risky tokens, show admin-themed guardrail panels, and offer "copy safely" output workflows.
-- **Admin-aligned extension UX**: Prompt interceptions surface control-tower inspired overlays with risk badges, sanitized previews, dry-run insights, and Chrome toasts that reuse the security theme tokens.
-- **Virtualized analyst views**: Security dashboard and events table provide high-volume event handling with risk badges, operational checklists, and export tooling.
+## Phase 1 Feature Highlights
+- **Backend**: `/v1/events/ingest` + `/v1/events/search`, policy CRUD, signed config delivery, and user metrics endpoints backed by Postgres + OpenSearch.
+- **Admin console**: Overview KPIs (Total users, Users with extension), live Events stream with filters/pagination, Policy CRUD editor with JSON validation.
+- **Extension**: DOM-Shield, detectors (PII/Secrets/Code/Prompt injection/token budget), HMAC/FPE-like tokenization, pre-send gating for block/sanitize/warn flows, clipboard interception, and sanitized telemetry posting to the backend.
+- **Shared**: Unified policy spec (`version 1.1` rules) reused across backend validation, admin editor, and extension enforcement.
 
 ## Getting Started
-1. Install dependencies with `pnpm install` (workspace aware) from the repository root.
-2. Run the admin console: `pnpm -C packages/admin-console dev` (Vite dev server on port 5173).
-3. Build the browser extension: `pnpm -C packages/extension build` (outputs to `packages/extension/dist/`). Load the unpacked folder in Chrome to exercise prompt interception flows.
-4. Optional hot rebuild: `pnpm -C packages/extension dev` watches TypeScript sources and re-emits the dist bundle.
+1. Install JS dependencies: `pnpm install` from the repo root.
+2. Start infrastructure: `docker compose -f infra/docker-compose.yml up -d` (Postgres + OpenSearch).
+3. Apply backend migrations & seed data:
+   ```bash
+   cd backend/api
+   pip install -e .[dev]
+   alembic upgrade head
+   python -m backend.api.scripts.seed
+   uvicorn backend.api.main:app --reload --port 8080
+   ```
+4. Run the admin console: `pnpm -C apps/admin dev` (Vite dev server on port 5173).
+5. Build the browser extension: `pnpm -C apps/extension build` (outputs to `apps/extension/dist/`). Load the unpacked folder in Chrome to exercise pre-send gating flows.
 
 ## Testing & Quality
-- UI tests: `pnpm -C packages/admin-console test` (Vitest + Testing Library in jsdom).
-- Linting & formatting: `pnpm -C packages/admin-console lint` for ESLint; Tailwind config and security-themed component library keep styling consistent.
-- Manual smoke scripts live in `MANUAL-QA.md` for extension + console scenarios (policy edits, telemetry export, redact checks).
+- UI tests: `pnpm -C apps/admin test` (Vitest + Testing Library in jsdom).
+- Backend tests: `cd backend/api && python3 -m pytest` (spins up ephemeral Postgres + OpenSearch via testcontainers—ensure Docker is running; override with `POSTGRES_URL`/`OPENSEARCH_NODE` env vars if you want to point at existing services).
+- Extension build verifies via tsup; unit tests for detectors/tokenization forthcoming.
+- E2E smoke: `pnpm test:e2e` (ensure `pip install -e backend/api.[dev]` and `pnpm exec playwright install --with-deps chromium` have been run once; the script builds the extension and runs a Playwright smoke test that boots the mocked backend, loads the unpacked extension, and exercises the clipboard guard).
 
 ## Privacy & Security Defaults
 - Sanitizer failures and unknown hosts fail-closed, optionally redirecting users to approved surfaces.

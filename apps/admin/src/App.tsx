@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Toaster } from 'sonner'
 import ComponentLibrarySpec from './components/ComponentLibrarySpec'
 import { ThemeProvider, Button } from './components/security-theme'
 import SecurityDashboard from './pages/SecurityDashboard'
@@ -6,13 +7,13 @@ import PolicyEditor from './pages/PolicyEditor'
 import EventsPage from './pages/EventsPage'
 import AppCatalog from './pages/AppCatalog'
 
-type Route = 'overview' | 'policy' | 'events' | 'catalog' | 'components'
+type Route = 'overview' | 'apps' | 'policy' | 'events' | 'components'
 
 const tabs: Array<{ key: Route; label: string }> = [
   { key: 'overview', label: 'Overview' },
+  { key: 'apps', label: 'App Catalog' },
   { key: 'policy', label: 'Policy' },
   { key: 'events', label: 'Events' },
-  { key: 'catalog', label: 'App Catalog' },
   { key: 'components', label: 'Components' },
 ]
 
@@ -23,10 +24,11 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
-        <header className="sticky top-0 z-20 border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.92)] backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-3">
+      <>
+        <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+          <header className="sticky top-0 z-20 border-b border-[hsl(var(--border))] bg-[hsla(var(--background),0.92)] backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+              <div className="flex items-center gap-3">
               <img
                 src={logoUrl}
                 alt="Checkred AI Security logo"
@@ -53,12 +55,14 @@ const App: React.FC = () => {
         </header>
         <main className="mx-auto max-w-6xl pb-12">
           {route === 'overview' && <SecurityDashboard />}
+          {route === 'apps' && <AppCatalog />}
           {route === 'policy' && <PolicyEditor />}
           {route === 'events' && <EventsPage />}
-          {route === 'catalog' && <AppCatalog />}
           {route === 'components' && <ComponentLibrarySpec />}
         </main>
-      </div>
+        </div>
+        <Toaster position="top-right" richColors duration={4000} />
+      </>
     </ThemeProvider>
   )
 }

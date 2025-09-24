@@ -1,4 +1,5 @@
 import { ensureCheckredTheme } from './theme'
+import type { HighlightFragment } from './tokenize'
 
 export type PanelRisk = 'low' | 'medium' | 'high' | 'critical' | 'info'
 
@@ -8,6 +9,11 @@ interface PanelAction {
   handler: () => void
 }
 
+interface HighlightedPreview {
+  label: string
+  fragments: HighlightFragment[]
+}
+
 interface PanelOptions {
   title: string
   message: string
@@ -15,10 +21,13 @@ interface PanelOptions {
   pills?: string[]
   preview?: string
   previewLabel?: string
+  highlighted?: HighlightedPreview
   dismissLabel?: string
   actions?: PanelAction[]
   autoDismissMs?: number
   target?: HTMLElement | null
+  extraContent?: HTMLElement | null
+  onDismiss?: () => void
 }
 
 let overlay: HTMLElement | null = null
@@ -84,6 +93,34 @@ function buildPreview(preview: string, previewLabel?: string) {
   return wrapper
 }
 
+function buildHighlightedPreview({ label, fragments }: HighlightedPreview) {
+  const wrapper = document.createElement('div')
+  wrapper.className = 'checkred-grid'
+  if (label) {
+    const title = document.createElement('span')
+    title.className = 'checkred-subtle'
+    title.textContent = label
+    wrapper.appendChild(title)
+  }
+
+  const container = document.createElement('div')
+  container.className = 'checkred-preview checkred-preview--inline'
+  fragments.forEach((fragment) => {
+    if (fragment.kind === 'text') {
+      container.appendChild(document.createTextNode(fragment.text))
+      return
+    }
+    const span = document.createElement('span')
+    span.className = 'checkred-inline'
+    span.dataset.kind = fragment.kind
+    span.textContent = fragment.text
+    container.appendChild(span)
+  })
+
+  wrapper.appendChild(container)
+  return wrapper
+}
+
 function clearAutoDismiss() {
   if (autoDismissTimer) {
     window.clearTimeout(autoDismissTimer)
@@ -129,11 +166,23 @@ function renderPanel(options: PanelOptions) {
     card.appendChild(buildPreview(options.preview, options.previewLabel))
   }
 
+  if (options.highlighted && options.highlighted.fragments.length > 0) {
+    card.appendChild(buildHighlightedPreview(options.highlighted))
+  }
+
+  if (options.extraContent) {
+    card.appendChild(options.extraContent)
+  }
+
   const dismissButton = document.createElement('button')
   dismissButton.className = 'checkred-dismiss'
   dismissButton.type = 'button'
   dismissButton.textContent = options.dismissLabel ?? 'Dismiss'
-  dismissButton.addEventListener('click', dismissPanel)
+  const handleDismiss = () => {
+    options.onDismiss?.()
+    dismissPanel()
+  }
+  dismissButton.addEventListener('click', handleDismiss)
   card.appendChild(dismissButton)
 
   if (options.actions?.length) {
@@ -159,7 +208,7 @@ function renderPanel(options: PanelOptions) {
   highlightTarget(options.target ?? null)
 
   if (options.autoDismissMs && options.autoDismissMs > 0) {
-    autoDismissTimer = window.setTimeout(dismissPanel, options.autoDismissMs)
+    autoDismissTimer = window.setTimeout(handleDismiss, options.autoDismissMs)
   }
 }
 
@@ -169,12 +218,16 @@ export function showBlockPanel({
   risk,
   pills,
   onRequestException,
+  fragments,
+  findingsLabel = 'Detected spans',
 }: {
   target?: HTMLElement | null
   reason: string
   risk: PanelRisk
   pills?: string[]
   onRequestException?: () => void
+  fragments?: HighlightFragment[]
+  findingsLabel?: string
 }) {
   const actions: PanelAction[] = []
   if (onRequestException) {
@@ -188,6 +241,7 @@ export function showBlockPanel({
     dismissLabel: 'Dismiss',
     actions,
     target,
+    highlighted: fragments && fragments.length > 0 ? { label: findingsLabel, fragments } : undefined,
   })
 }
 
@@ -197,12 +251,16 @@ export function showSanitizedPanel({
   redactions,
   reasons,
   risk,
+  fragments,
+  findingsLabel = 'Flagged spans',
 }: {
   target?: HTMLElement | null
   sanitized: string
   redactions: number
   reasons: string[]
   risk: PanelRisk
+  fragments?: HighlightFragment[]
+  findingsLabel?: string
 }) {
   const summary = redactions === 1 ? '1 redaction applied' : `${redactions} redactions applied`
   renderPanel({
@@ -215,6 +273,7 @@ export function showSanitizedPanel({
     dismissLabel: 'Close',
     target,
     autoDismissMs: 7000,
+    highlighted: fragments && fragments.length > 0 ? { label: findingsLabel, fragments } : undefined,
   })
 }
 
@@ -224,12 +283,16 @@ export function showInfoPanel({
   message,
   pills,
   autoDismissMs = 5000,
+  fragments,
+  findingsLabel = 'Detected spans',
 }: {
   target?: HTMLElement | null
   title: string
   message: string
   pills?: string[]
   autoDismissMs?: number
+  fragments?: HighlightFragment[]
+  findingsLabel?: string
 }) {
   renderPanel({
     title,
@@ -239,6 +302,7 @@ export function showInfoPanel({
     dismissLabel: 'Dismiss',
     target,
     autoDismissMs,
+    highlighted: fragments && fragments.length > 0 ? { label: findingsLabel, fragments } : undefined,
   })
 }
 
@@ -247,4 +311,84 @@ export function coercePanelRisk(risk?: string): PanelRisk {
     return risk
   }
   return 'medium'
+}
+
+export function confirmSanitizePanel({
+  target,
+  sanitized,
+  original,
+  redactions,
+  reasons,
+  risk,
+  fragments,
+  findingsLabel = 'Sanitized spans',
+}: {
+  target?: HTMLElement | null
+  sanitized: string
+  original: string
+  redactions: number
+  reasons: string[]
+  risk: PanelRisk
+  fragments?: HighlightFragment[]
+  findingsLabel?: string
+}): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const resolveOnce = (value: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+
+    const wrapper = document.createElement('div')
+    wrapper.className = 'checkred-diff'
+
+    const originalColumn = document.createElement('div')
+    originalColumn.className = 'checkred-diff__column'
+    const originalLabel = document.createElement('span')
+    originalLabel.className = 'checkred-subtle'
+    originalLabel.textContent = 'Original prompt'
+    const originalPre = document.createElement('pre')
+    originalPre.className = 'checkred-diff__pre'
+    originalPre.textContent = original
+    originalColumn.appendChild(originalLabel)
+    originalColumn.appendChild(originalPre)
+
+    const sanitizedColumn = document.createElement('div')
+    sanitizedColumn.className = 'checkred-diff__column'
+    const sanitizedLabel = document.createElement('span')
+    sanitizedLabel.className = 'checkred-subtle'
+    sanitizedLabel.textContent = 'Sanitized prompt'
+    const sanitizedPre = document.createElement('pre')
+    sanitizedPre.className = 'checkred-diff__pre'
+    sanitizedPre.textContent = sanitized
+    sanitizedColumn.appendChild(sanitizedLabel)
+    sanitizedColumn.appendChild(sanitizedPre)
+
+    wrapper.appendChild(originalColumn)
+    wrapper.appendChild(sanitizedColumn)
+
+    renderPanel({
+      title: 'Review sanitized prompt',
+      message:
+        redactions === 1
+          ? 'One redaction is required before sending. Confirm to submit the sanitized copy.'
+          : `${redactions} redactions are required before sending. Confirm to submit the sanitized copy.`,
+      risk,
+      pills: reasons,
+      preview: undefined,
+      dismissLabel: 'Cancel',
+      highlighted: fragments && fragments.length > 0 ? { label: findingsLabel, fragments } : undefined,
+      extraContent: wrapper,
+      onDismiss: () => resolveOnce(false),
+      actions: [
+        {
+          label: 'Send sanitized',
+          variant: 'primary',
+          handler: () => resolveOnce(true),
+        },
+      ],
+      target,
+    })
+  })
 }

@@ -270,6 +270,93 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 )
 Input.displayName = 'Input'
 
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  label?: string
+  hint?: string
+  error?: string
+  minRows?: number
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, label, hint, error, id, minRows = 6, ...props }, ref) => {
+    const generatedId = React.useId()
+    const textareaId = id ?? generatedId
+    return (
+      <div className="flex flex-col gap-1">
+        {label ? (
+          <label htmlFor={textareaId} className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+            {label}
+          </label>
+        ) : null}
+        <textarea
+          ref={ref}
+          id={textareaId}
+          className={cn(
+            inputClasses,
+            'min-h-[calc(var(--control-height)*1.5)] resize-y',
+            error && 'border-[hsl(var(--destructive))] focus-visible:ring-[hsl(var(--destructive))]',
+            className,
+          )}
+          rows={minRows}
+          aria-invalid={Boolean(error) || undefined}
+          {...props}
+        />
+        {error ? (
+          <p className="text-xs text-[hsl(var(--destructive))]" role="alert">
+            {error}
+          </p>
+        ) : hint ? (
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">{hint}</p>
+        ) : null}
+      </div>
+    )
+  },
+)
+Textarea.displayName = 'Textarea'
+
+export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
+  label?: string
+  hint?: string
+  error?: string
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, label, hint, error, id, children, ...props }, ref) => {
+    const generatedId = React.useId()
+    const selectId = id ?? generatedId
+    return (
+      <div className="flex flex-col gap-1">
+        {label ? (
+          <label htmlFor={selectId} className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+            {label}
+          </label>
+        ) : null}
+        <select
+          ref={ref}
+          id={selectId}
+          className={cn(
+            inputClasses,
+            error && 'border-[hsl(var(--destructive))] focus-visible:ring-[hsl(var(--destructive))]',
+            className,
+          )}
+          aria-invalid={Boolean(error) || undefined}
+          {...props}
+        >
+          {children}
+        </select>
+        {error ? (
+          <p className="text-xs text-[hsl(var(--destructive))]" role="alert">
+            {error}
+          </p>
+        ) : hint ? (
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">{hint}</p>
+        ) : null}
+      </div>
+    )
+  },
+)
+Select.displayName = 'Select'
+
 export const Card = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
@@ -311,6 +398,17 @@ export const CardContent = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
   ),
 )
 CardContent.displayName = 'CardContent'
+
+export const Skeleton = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('animate-pulse rounded-md bg-[hsla(var(--muted),0.45)]', className)}
+      {...props}
+    />
+  ),
+)
+Skeleton.displayName = 'Skeleton'
 
 export const ThemeToggle: React.FC = () => {
   const { theme, setTheme, resolvedTheme } = useTheme()
